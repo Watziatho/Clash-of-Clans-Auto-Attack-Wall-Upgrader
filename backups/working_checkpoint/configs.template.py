@@ -12,7 +12,7 @@ TELEGRAM_BOT_TOKEN = "" # (e.g. 123456789:ABCdefGHIjkl-MNO_pqrSTUvwxYZ)
 GROQ_API_KEY = ""
 
 # REQUIRED: Instance Settings
-INSTANCE_IDS = ["main"]
+INSTANCE_IDS = ["main", "base2", "base3", "base4"]
 DEFAULT_INSTANCE_ID = INSTANCE_IDS[0]
 
 # REQUIRED: General Settings

@@ -665,10 +665,6 @@ class BlueStacks_Manager:
     @classproperty
     def internal_instance_name(cls, instance_id=None):
         import json
-        
-        if cls._internal_instance_name is not None:
-            return cls._internal_instance_name
-        
         instance_id = instance_id if instance_id is not None else INSTANCE_ID
         
         if cls._mim_path is None or not Path(cls._mim_path).exists():
@@ -681,21 +677,20 @@ class BlueStacks_Manager:
             if cls._mim_path is None or not Path(cls._mim_path).exists():
                 cls._mim_path = file_search("/", "MimMetaData.json", ["bluestacks"])
 
-        if cls._internal_instance_name is None and cls._mim_path is not None:
-            if cls._mim_path is not None and Path(cls._mim_path).exists():
+        if cls._mim_path is not None and Path(cls._mim_path).exists():
+            try:
                 mim_data = json.loads(Path(cls._mim_path).read_text())
                 instances = {instance['Name']: instance["InstanceName"] for instance in mim_data["Organization"]}
-                cls._internal_instance_name = instances.get(instance_id, None)
-            else:
-                if configs.DEBUG: print("MimMetaData.json not found, using default instance.")
+                return instances.get(instance_id, "Pie64")
+            except:
+                pass
         
-        return cls._internal_instance_name
+        return "Pie64"
     
     @classproperty
     def adb_port(cls):
-        if cls._adb_port is not None:
-            return cls._adb_port
-
+        internal_name = cls.internal_instance_name
+        
         if cls._conf_path is None or not Path(cls._conf_path).exists():
             if sys.platform == "darwin":
                 cls._conf_path = "/Users/Shared/Library/Application Support/BlueStacks/bluestacks.conf"
@@ -706,16 +701,16 @@ class BlueStacks_Manager:
             if cls._conf_path is None or not Path(cls._conf_path).exists():
                 cls._conf_path = file_search("/", "bluestacks.conf", ["bluestacks"])
 
-        if cls._adb_port is None and cls._conf_path is not None:
-            if cls._conf_path is not None and Path(cls._conf_path).exists():
+        if cls._conf_path is not None and Path(cls._conf_path).exists():
+            try:
                 conf_data = Path(cls._conf_path).read_text()
                 for line in conf_data.splitlines():
-                    if line.startswith(f"bst.instance.{cls.internal_instance_name}.adb_port"):
-                        cls._adb_port = line.split("=")[1].strip().replace('"', '')
-        if cls._adb_port is None:
-            cls._adb_port = "5555"
-
-        return cls._adb_port
+                    if line.startswith(f"bst.instance.{internal_name}.adb_port"):
+                        return line.split("=")[1].strip().replace('"', '')
+            except:
+                pass
+        
+        return "5555"
 
     @classproperty
     def adb_address(cls):
