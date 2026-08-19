@@ -859,7 +859,7 @@ class OCR_Handler:
     def local_ocr(cls, frame):
         if not hasattr(cls, 'reader'):
             import easyocr
-            cls.reader = easyocr.Reader(['en'], gpu=True)
+            cls.reader = easyocr.Reader(['en'], gpu=False, verbose=False)
         result = cls.reader.readtext(frame, detail=0)
         return [text for text in result if text.strip()]
 

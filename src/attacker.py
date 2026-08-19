@@ -44,32 +44,41 @@ class Attacker:
             return None, None
         return click_with_timeout(locate_return, timeout=timeout)
 
-    def _dismiss_end_screens(self, max_attempts=8):
+    def _dismiss_end_screens(self, max_attempts=10):
         for _ in range(max_attempts):
+            # 1. Fast home check (0.005s template match, no OCR)
             try:
-                if get_home_builders(0.5, return_amount=False):
+                if get_home_builders(0.1, return_amount=False, raise_exception=False):
                     return True
             except:
                 pass
             
-            # Click Return Home / Claim Reward
-            if self._click_return_home(timeout=1):
-                time.sleep(0.5)
-                # Tap middle card to auto-reveal mini-game card if on card screen
+            # 2. Click Claim Reward / Continue / Return Home (bottom-center)
+            Input_Handler.click(0.50, 0.90)
+            time.sleep(0.15)
+            
+            # 3. Rapid burst 4x fast taps to instantly slice open card pack (center 0.50, 0.50)
+            for _ in range(4):
                 Input_Handler.click(0.50, 0.50)
-                time.sleep(0.4)
-                Input_Handler.click(0.50, 0.89)
-                time.sleep(0.5)
-                continue
+                time.sleep(0.1)
             
-            # Click Okay confirmation
-            if self._click_okay(timeout=0.5):
-                time.sleep(0.5)
-                continue
+            # 4. Click "Continue" button after card reveal
+            time.sleep(0.2)
+            Input_Handler.click(0.50, 0.90)
+            time.sleep(0.3)
+            Input_Handler.click(0.50, 0.90)
+            time.sleep(0.3)
             
-            # Fallback tap bottom-center to dismiss popups
-            Input_Handler.click(0.50, 0.89)
-            time.sleep(0.5)
+            # 5. Check if back home
+            try:
+                if get_home_builders(0.1, return_amount=False, raise_exception=False):
+                    return True
+            except:
+                pass
+            
+            # 6. Check for Okay modal if present
+            if self._click_okay(timeout=0.1):
+                time.sleep(0.2)
             
         return False
 

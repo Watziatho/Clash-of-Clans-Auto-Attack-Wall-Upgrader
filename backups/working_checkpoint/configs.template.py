@@ -22,7 +22,7 @@ CHECK_INTERVAL = 0 # 0 for immediate back-to-back attacks as soon as you arrive 
 # REQUIRED: Home Attack Settings
 ATTACK_HOME_BASE = True # can be overridden on desktop or web app
 TROOP_DEPLOY_TIME = 2 # seconds to hold down each troop slot
-BATTLE_DURATION = 60 # seconds to wait before surrender (or finishes earlier on win/loss)
+BATTLE_DURATION = 50 # seconds to wait before surrender (or finishes earlier on win/loss)
 ATTACK_SLOT_RANGE = (0, 100) # inclusive, first slot is index 0
 EXCLUDE_CLAN_TROOPS = True
 
