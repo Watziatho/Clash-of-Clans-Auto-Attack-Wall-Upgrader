@@ -1018,8 +1018,7 @@ class ADB_Manager:
         if cls.is_connected(): return
         subprocess.run(["adb", "start-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         res = adbutils.adb.connect(addr)
-        if "connected" not in res:
-            subprocess.run(["adb", "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if "connected" not in res and "already connected" not in res:
             raise Exception("Failed to connect to ADB.")
         devices = []
         try:
@@ -1029,9 +1028,8 @@ class ADB_Manager:
             devices = [d1, d2, d3]
             Exit_Handler.register(d2.stop)
         except (KeyboardInterrupt, SystemExit): raise
-        except:
-            subprocess.run(["adb", "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            raise Exception("Failed to get ADB device.")
+        except Exception as e:
+            raise Exception(f"Failed to get ADB device: {e}")
         cls._adbutils_device, cls._minitouch_device, cls._uiautomator_device = devices
     
     @classmethod

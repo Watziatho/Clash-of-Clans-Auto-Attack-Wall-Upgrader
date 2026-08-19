@@ -317,6 +317,8 @@
             instanceStates[inst.id] = { running: inst.running, port: inst.port };
         });
 
+        const logCaches = {};
+
         function switchTab(id) {
             currentTab = id;
             allInstances.forEach(inst => {
@@ -331,6 +333,13 @@
                 }
             });
             document.getElementById('current_log_title').textContent = id;
+            const terminal = document.getElementById('log_terminal');
+            if (logCaches[id]) {
+                terminal.textContent = logCaches[id];
+                terminal.scrollTop = terminal.scrollHeight;
+            } else {
+                terminal.textContent = "Loading logs for " + id + "...";
+            }
             fetchLogs();
         }
 
@@ -351,6 +360,7 @@
                     const running = (action === 'start');
                     instanceStates[id].running = running;
                     updateInstanceUI(id, running);
+                    fetchLogs();
                 }
             } catch (err) {
                 console.error(err);
@@ -396,13 +406,13 @@
         async function clearLogs(id) {
             try {
                 await fetch(`/instances/${id}/logs/clear`, { method: 'POST' });
+                logCaches[id] = "";
                 fetchLogs();
             } catch (err) {
                 console.error(err);
             }
         }
 
-        let lastLogContent = "";
         async function fetchLogs() {
             try {
                 const res = await fetch(`/instances/${currentTab}/logs`);
@@ -411,11 +421,9 @@
                 
                 if (data.logs && data.logs.length > 0) {
                     const fullText = data.logs.join("");
-                    if (fullText !== lastLogContent) {
-                        lastLogContent = fullText;
-                        terminal.textContent = fullText;
-                        terminal.scrollTop = terminal.scrollHeight;
-                    }
+                    logCaches[currentTab] = fullText;
+                    terminal.textContent = fullText;
+                    terminal.scrollTop = terminal.scrollHeight;
                 } else {
                     terminal.textContent = "No logs yet. Click START to begin.";
                 }
