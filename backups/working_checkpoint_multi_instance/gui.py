@@ -16,12 +16,12 @@ def run_gui(server_port, pipe, debug=False):
     
     url = f"http://127.0.0.1:{server_port}"
     window = webview.create_window(
-        "CoC Bot",
+        "CoC Bot - Multi-Base Manager",
         url=url,
-        width=400,
-        height=600,
-        min_size=(400, 600),
-        resizable=(sys.platform == "darwin"),
+        width=560,
+        height=720,
+        min_size=(480, 600),
+        resizable=True,
     )
     
     def on_closed():

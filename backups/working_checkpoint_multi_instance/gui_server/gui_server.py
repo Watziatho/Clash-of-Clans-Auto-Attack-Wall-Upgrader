@@ -163,6 +163,34 @@ def handle_exclude(id):
             instance.exclusions.discard(task)
     return {"exclusions": list(instance.exclusions)}
 
+@app.route("/instances/<id>/logs", methods=["GET"])
+def handle_instance_logs(id):
+    log_path = Path("debug") / f"{id}.log"
+    if not log_path.exists():
+        app_data_log = Path.home() / ".CoC_Bot" / "debug" / f"{id}.log"
+        if app_data_log.exists():
+            log_path = app_data_log
+
+    if log_path.exists():
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+                return jsonify({"logs": lines[-300:], "count": len(lines)})
+        except Exception as e:
+            return jsonify({"logs": [f"Error reading log: {e}"], "count": 0})
+    return jsonify({"logs": ["No logs recorded yet. Click START to begin."], "count": 0})
+
+@app.route("/instances/<id>/logs/clear", methods=["POST"])
+def handle_clear_logs(id):
+    log_path = Path("debug") / f"{id}.log"
+    if log_path.exists():
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write("")
+        except:
+            pass
+    return jsonify(1)
+
 def start_server(pipe, server_port=5000, id=None, debug=False):
     global bot_pipe
     bot_pipe = pipe

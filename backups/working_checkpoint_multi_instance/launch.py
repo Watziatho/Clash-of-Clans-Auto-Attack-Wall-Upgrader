@@ -38,9 +38,10 @@ def gui_launch(args):
             "--gui-port", str(args.gui_port)
         ]
         if sys.platform == "win32":
+            CREATE_NO_WINDOW = 0x08000000
             p = subprocess.Popen(
                 cmd,
-                creationflags=subprocess.CREATE_NEW_CONSOLE
+                creationflags=CREATE_NO_WINDOW
             )
         else:
             p = subprocess.Popen(cmd)
