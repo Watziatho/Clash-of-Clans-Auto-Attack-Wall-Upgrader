@@ -12,7 +12,13 @@ sys.path.append(str(path))
 
 import os
 import time
+import logging
 from flask import Flask, render_template, jsonify, abort, request
+
+# Silence Flask access log spam
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
 try:
     from configs import *
 except:

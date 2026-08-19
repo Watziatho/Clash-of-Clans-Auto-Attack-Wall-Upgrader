@@ -1,3 +1,7 @@
+import sys
+import subprocess
+from pathlib import Path
+
 def launch_proc(args):
     from log import enable_logging
     from utils import parse_args, init_instance
@@ -18,7 +22,6 @@ def gui_launch(args):
     from multiprocessing import Process
     import utils
     from gui import init_gui, get_gui
-    from copy import deepcopy
     
     procs = {}
     pipe = init_gui(args.id)
@@ -26,33 +29,46 @@ def gui_launch(args):
     
     if utils.DISABLE_DEVICE_SLEEP: Process(target=utils.disable_sleep).start()
 
+    def start_instance_process(inst_id):
+        main_script = Path(__file__).parent / "main.py"
+        cmd = [
+            sys.executable, "-u", str(main_script),
+            "--instance-id", inst_id,
+            "--no-gui",
+            "--gui-port", str(args.gui_port)
+        ]
+        if sys.platform == "win32":
+            p = subprocess.Popen(
+                cmd,
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+        else:
+            p = subprocess.Popen(cmd)
+        procs[inst_id] = p
+
     if args.id is not None:
-        p = Process(target=launch_proc, args=(args,))
-        p.start()
-        procs[args.id] = p
+        start_instance_process(args.id)
+
     try:
         while True:
             data = pipe.recv()
             if data == -1: raise SystemExit
-            action, id = data.get("action"), data.get("id")
-            if action == "start":
-                args_copy = deepcopy(args)
-                args_copy.id = data.get("id")
-                p = Process(target=launch_proc, args=(args_copy,))
-                p.start()
-                procs[id] = p
-            elif action == "stop":
-                p = procs.pop(id, None)
-                if p and p.is_alive():
+            action, inst_id = data.get("action"), data.get("id")
+            if action == "start" and inst_id:
+                if inst_id not in procs or procs[inst_id].poll() is not None:
+                    start_instance_process(inst_id)
+            elif action == "stop" and inst_id:
+                p = procs.pop(inst_id, None)
+                if p and p.poll() is None:
                     p.terminate()
-                    p.join()
+                    p.kill()
     except (EOFError, KeyboardInterrupt, SystemExit):
         get_gui().stop()
         pipe.close()
         for p in procs.values():
-            if p and p.is_alive():
+            if p and p.poll() is None:
                 p.terminate()
-                p.join()
+                p.kill()
 
 def launch():
     import utils
