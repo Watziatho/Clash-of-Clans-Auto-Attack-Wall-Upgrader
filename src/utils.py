@@ -36,6 +36,9 @@ def parse_args(debug=None, id=None, gui=None, gui_port=None):
     configs.DEBUG = args.debug if debug is None else debug
     configs.LOCAL_GUI = args.gui if gui is None else gui
     TEMP_CACHE["gui_port"] = args.gui_port if gui_port is None else gui_port
+    if args.gui_port is not None:
+        global WEB_APP_URL
+        WEB_APP_URL = f"http://127.0.0.1:{args.gui_port}"
     if id is not None:
         assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
         args.id = id
@@ -51,12 +54,11 @@ def init_instance(id):
     INSTANCE_ID = id
     ADB_ADDRESS = BlueStacks_Manager.adb_address
     
-    # Auto-launch BlueStacks instance once if offline
-    if not BlueStacks_Manager.check():
-        internal_name = BlueStacks_Manager.internal_instance_name
-        print(f"BlueStacks instance '{INSTANCE_ID}' ({internal_name}) is offline. Launching BlueStacks...")
-        BlueStacks_Manager.start(timeout=90)
-        print(f"BlueStacks instance '{INSTANCE_ID}' connected successfully on port {BlueStacks_Manager.adb_port}!")
+    print(f"Connecting to instance '{INSTANCE_ID}' at {ADB_ADDRESS}...")
+    if not ADB_Manager.connect(timeout=30):
+        print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
+    else:
+        print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
     
     if WEB_APP_URL != "":
         if "pythonanywhere.com" in WEB_APP_URL:
@@ -1010,7 +1012,8 @@ class ADB_Manager:
         if addr is None: addr = ADB_ADDRESS
         if ADB_ABS_DIR != "": os.environ["PATH"] = ADB_ABS_DIR + os.pathsep + os.environ["PATH"]
         if cls.is_connected(): return
-        subprocess.run(["adb", "start-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        flags = 0x08000000 if sys.platform == "win32" else 0
+        subprocess.run(["adb", "start-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
         res = adbutils.adb.connect(addr)
         if "connected" not in res and "already connected" not in res:
             raise Exception("Failed to connect to ADB.")

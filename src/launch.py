@@ -8,9 +8,9 @@ def cleanup_orphan_bots():
     current_pid = os.getpid()
     for p in psutil.process_iter(['pid', 'name', 'cmdline']):
         try:
-            if p.info['pid'] != current_pid and p.info['name'] in ['python.exe', 'python']:
+            if p.info['pid'] != current_pid and p.info['name'] in ['python.exe', 'python', 'CoC_Bot.exe', 'CoC_Bot']:
                 cmd = ' '.join(p.info['cmdline'] or [])
-                if 'main.py' in cmd and ('--instance-id' in cmd or '--no-gui' in cmd):
+                if ('--instance-id' in cmd or '--no-gui' in cmd):
                     p.kill()
         except:
             pass
@@ -33,14 +33,19 @@ def reset_log_files():
 
 def launch_proc(args):
     from log import enable_logging
+    enable_logging(args.id)
     from utils import parse_args, init_instance
     from coc_bot import CoC_Bot
     
     parse_args(args.debug, args.id, args.gui, args.gui_port)
-    init_instance(args.id)
-    enable_logging(args.id)
-    bot = CoC_Bot()
-    bot.run()
+    try:
+        init_instance(args.id)
+        bot = CoC_Bot()
+        bot.run()
+    except Exception as e:
+        import traceback
+        print(f"Fatal error in worker for '{args.id}': {e}")
+        traceback.print_exc()
 
 def cmd_launch(args):
     import utils
@@ -61,13 +66,21 @@ def gui_launch(args):
     if utils.DISABLE_DEVICE_SLEEP: Process(target=utils.disable_sleep).start()
 
     def start_instance_process(inst_id):
-        main_script = Path(__file__).parent / "main.py"
-        cmd = [
-            sys.executable, "-u", str(main_script),
-            "--instance-id", inst_id,
-            "--no-gui",
-            "--gui-port", str(args.gui_port)
-        ]
+        if getattr(sys, "frozen", False):
+            cmd = [
+                sys.executable,
+                "--instance-id", inst_id,
+                "--no-gui",
+                "--gui-port", str(args.gui_port)
+            ]
+        else:
+            main_script = Path(__file__).parent / "main.py"
+            cmd = [
+                sys.executable, "-u", str(main_script),
+                "--instance-id", inst_id,
+                "--no-gui",
+                "--gui-port", str(args.gui_port)
+            ]
         if sys.platform == "win32":
             CREATE_NO_WINDOW = 0x08000000
             p = subprocess.Popen(
