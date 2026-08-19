@@ -901,7 +901,12 @@ class Asset_Manager:
         if hasattr(sys, "_MEIPASS"):
             base_path = Path(sys._MEIPASS)
         else:
-            base_path = Path(__file__).parent.parent.resolve()
+            current = Path(__file__).resolve().parent
+            base_path = current.parent
+            for p in [current] + list(current.parents):
+                if (p / "assets").exists():
+                    base_path = p
+                    break
         return base_path / rel_path
     
     @classmethod
