@@ -595,12 +595,17 @@ class Exit_Handler:
 
     @classmethod
     def setup_signal_handlers(cls):
-        import signal
-        signals = [signal.SIGINT, signal.SIGTERM]
-        if sys.platform != "win32":
-            signals.append(signal.SIGHUP)
-        for sig in signals:
-            signal.signal(sig, cls.handle_sig)
+        import signal, threading
+        if threading.current_thread() is not threading.main_thread():
+            return
+        try:
+            signals = [signal.SIGINT, signal.SIGTERM]
+            if sys.platform != "win32":
+                signals.append(signal.SIGHUP)
+            for sig in signals:
+                signal.signal(sig, cls.handle_sig)
+        except (ValueError, AttributeError):
+            pass
 
 Exit_Handler.setup_signal_handlers()
 

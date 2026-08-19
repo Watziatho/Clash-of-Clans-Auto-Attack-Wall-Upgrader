@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 
 if hasattr(sys, "_MEIPASS"):
@@ -20,6 +21,27 @@ except:
 app = Flask(__name__)
 bot_pipe = None
 
+def get_instance_port(inst_id):
+    internal_name = "Pie64"
+    mim_path = Path(r"C:\ProgramData\BlueStacks_nxt\Engine\UserData\MimMetaData.json")
+    if mim_path.exists():
+        try:
+            mim_data = json.loads(mim_path.read_text())
+            instances_map = {instance['Name']: instance["InstanceName"] for instance in mim_data.get("Organization", [])}
+            internal_name = instances_map.get(inst_id, "Pie64")
+        except:
+            pass
+    
+    conf_path = Path(r"C:\ProgramData\BlueStacks_nxt\bluestacks.conf")
+    if conf_path.exists():
+        try:
+            for l in conf_path.read_text().splitlines():
+                if l.startswith(f"bst.instance.{internal_name}.adb_port"):
+                    return l.split("=")[1].strip().replace('"', '')
+        except:
+            pass
+    return "5555"
+
 class Instance:
     def __init__(self, id=None):
         self.id = id if id is not None else ""
@@ -34,20 +56,10 @@ instances = {}
 
 @app.route("/", methods=["GET"])
 def home():
-    from utils import BlueStacks_Manager
     instance_info = []
     for inst_id in INSTANCE_IDS:
         is_running = inst_id in instances
-        port = BlueStacks_Manager.internal_instance_name(inst_id)
-        adb_p = "5555"
-        try:
-            conf_path = Path(r"C:\ProgramData\BlueStacks_nxt\bluestacks.conf")
-            if conf_path.exists():
-                for l in conf_path.read_text().splitlines():
-                    if l.startswith(f"bst.instance.{port}.adb_port"):
-                        adb_p = l.split("=")[1].strip().replace('"', '')
-        except:
-            pass
+        adb_p = get_instance_port(inst_id)
         instance_info.append({
             "id": inst_id,
             "running": is_running,
@@ -66,7 +78,6 @@ def home():
 def handle_instance(id):
     instance = instances.get(id)
     if not instance:
-        # Create instance entry on demand when navigating directly
         instance = Instance(id)
         instances[id] = instance
         if bot_pipe:
