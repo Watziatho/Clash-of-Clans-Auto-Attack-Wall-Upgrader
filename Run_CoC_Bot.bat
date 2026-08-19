@@ -1,7 +1,7 @@
 @echo off
-title CoC Bot - Home Attack
+title CoC Bot Manager
 cd /d E:\Projects\CoC_Bot
-python src/main.py --instance-id main --gui
+python src/main.py --gui
 if %errorlevel% neq 0 (
     echo.
     echo Bot exited with an error.

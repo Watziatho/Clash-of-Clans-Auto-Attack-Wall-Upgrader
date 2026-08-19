@@ -1,95 +1,242 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CoC Bot</title>
+    <title>CoC Bot - Multi-Base Manager</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header-section {
+            margin-bottom: 15px;
+        }
+        .header-section img {
+            width: 70px;
+            height: 70px;
+            border-radius: 18px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .header-title {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin: 5px 0;
+        }
+        .global-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .btn-global {
+            flex: 1;
+            padding: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+        .btn-global:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        .btn-start-all {
+            background-color: #28a745;
+            color: #fff;
+        }
+        .btn-stop-all {
+            background-color: #dc3545;
+            color: #fff;
+        }
+        .instance-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .instance-card {
+            background: rgba(125, 125, 125, 0.08);
+            border: 1px solid rgba(125, 125, 125, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s ease;
+        }
+        .instance-card:hover {
+            background: rgba(125, 125, 125, 0.14);
+        }
+        .instance-info {
+            text-align: left;
+        }
+        .instance-name {
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .instance-port {
+            font-size: 0.85em;
+            opacity: 0.65;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .status-running {
+            background: #28a745;
+            color: white;
+        }
+        .status-stopped {
+            background: #6c757d;
+            color: white;
+        }
+        .instance-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn-toggle {
+            padding: 8px 14px;
+            font-size: 0.9em;
+            font-weight: 700;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            min-width: 75px;
+            transition: transform 0.15s ease;
+        }
+        .btn-toggle:hover {
+            transform: scale(1.04);
+        }
+        .btn-start {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-stop {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-details {
+            background: rgba(125, 125, 125, 0.2);
+            color: var(--text);
+            border: none;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 0.9em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-details:hover {
+            background: rgba(125, 125, 125, 0.35);
+        }
+    </style>
 </head>
 <body>
-    <header>
+    <div class="header-section">
         <img src="{{ url_for('static', filename='coc_bot_logo.png') }}" alt="CoC Bot">
-        <h1 class="themed_text">CoC Bot</h1>
-    </header>
+        <div class="header-title themed_text">CoC Bot Manager</div>
+        <p style="font-size: 0.9em; opacity: 0.7; margin: 0;">Multi-Base Attack Controller</p>
+    </div>
 
-    <div class="container">
-        <form method="POST" class="custom-input-form">
-            <input type="text" name="id" placeholder="ID" required title="Instance ID" autofocus>
-            <button type="submit" name="id"><i class="fas fa-arrow-right"></i></button>
-        </form>
-        <form class="stacked-buttons"></form>
+    <div class="global-actions">
+        <button class="btn-global btn-start-all" onclick="startAll()"><i class="fas fa-play"></i> Start All</button>
+        <button class="btn-global btn-stop-all" onclick="stopAll()"><i class="fas fa-stop"></i> Stop All</button>
+    </div>
+
+    <div class="instance-list">
+        {% for inst in instances %}
+        <div class="instance-card" id="card_{{ inst.id }}">
+            <div class="instance-info">
+                <div class="instance-name themed_text">
+                    {{ inst.id }}
+                    <span id="badge_{{ inst.id }}" class="status-badge {{ 'status-running' if inst.running else 'status-stopped' }}">
+                        {{ 'RUNNING' if inst.running else 'IDLE' }}
+                    </span>
+                </div>
+                <div class="instance-port themed_text">
+                    <i class="fas fa-network-wired"></i> Port: {{ inst.port }}
+                </div>
+            </div>
+            <div class="instance-controls">
+                <button 
+                    id="btn_{{ inst.id }}" 
+                    class="btn-toggle {{ 'btn-stop' if inst.running else 'btn-start' }}" 
+                    onclick="toggleInstance('{{ inst.id }}')">
+                    {{ 'STOP' if inst.running else 'START' }}
+                </button>
+                <a href="/instances/{{ inst.id }}" class="btn-details" title="Settings & Timer">
+                    <i class="fas fa-cog"></i>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 
     <script>
-        const ids = new Set({{ ids|default([])|tojson }});
+        async function toggleInstance(id) {
+            const btn = document.getElementById(`btn_${id}`);
+            const badge = document.getElementById(`badge_${id}`);
+            const isRunning = btn.classList.contains('btn-stop');
+            const action = isRunning ? 'stop' : 'start';
 
-        async function registerID(new_id) {
+            btn.disabled = true;
             try {
-                const url = `/instance_action`;
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        action: "start",
-                        id: new_id
-                    })
+                const res = await fetch('/instance_action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: action, id: id })
                 });
-                const res = await response.json();
-                if (res === 0) {
-                    alert("Invalid ID");
-                    return false;
-                } else {
-                    return true;
+                const result = await res.json();
+                if (result === 1) {
+                    if (action === 'start') {
+                        btn.className = 'btn-toggle btn-stop';
+                        btn.textContent = 'STOP';
+                        badge.className = 'status-badge status-running';
+                        badge.textContent = 'RUNNING';
+                    } else {
+                        btn.className = 'btn-toggle btn-start';
+                        btn.textContent = 'START';
+                        badge.className = 'status-badge status-stopped';
+                        badge.textContent = 'IDLE';
+                    }
                 }
-            } catch (error) {
-                console.error('Error setting ID:', error);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                btn.disabled = false;
             }
         }
 
-        function updateInstances() {
-            let i = 0;
-            const ids_list = Array.from(ids);
-            while (i < ids_list.length) {
-                const id = ids_list[i];
-                if (!document.getElementById(`id_${id}`)) {
-                    const idButton = document.createElement("button");
-                    idButton.type = "submit";
-                    idButton.id = `id_${id}`;
-                    idButton.value = id;
-                    idButton.innerHTML = `${id}`;
-                    idButton.onclick = () => {
-                        window.location.href = `/instances/${id}`;
-                    };
-                    document.querySelector(".stacked-buttons").appendChild(idButton);
+        async function startAll() {
+            const allIds = {{ all_ids|tojson }};
+            for (const id of allIds) {
+                const btn = document.getElementById(`btn_${id}`);
+                if (btn && btn.classList.contains('btn-start')) {
+                    await toggleInstance(id);
                 }
-
-                i++;
             }
         }
 
-        updateInstances();
-
-        document.querySelectorAll("form").forEach(form => {
-            form.addEventListener("submit", async (e) => {
-                e.preventDefault();
-                
-                const submitter = e.submitter;
-                const formData = new FormData(form);
-
-                if (submitter.name === "id") {
-                    const newID = formData.get("id").trim();
-                    const valid = await registerID(newID);
-                    if (!valid) return;
-                    // ids.add(newID);
-                    // updateInstances();
-                    window.location.href = `/instances/${newID}`;
+        async function stopAll() {
+            const allIds = {{ all_ids|tojson }};
+            for (const id of allIds) {
+                const btn = document.getElementById(`btn_${id}`);
+                if (btn && btn.classList.contains('btn-stop')) {
+                    await toggleInstance(id);
                 }
-                
-                form.reset();
-            });
-        });
+            }
+        }
     </script>
 </body>
 </html>

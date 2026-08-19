@@ -23,7 +23,7 @@ bot_pipe = None
 class Instance:
     def __init__(self, id=None):
         self.id = id if id is not None else ""
-        self.run_status = ""
+        self.run_status = "Running"
         self.end_time = 0
         task_settings = {
             "home_attacks": not ATTACK_HOME_BASE,
@@ -34,15 +34,44 @@ instances = {}
 
 @app.route("/", methods=["GET"])
 def home():
+    from utils import BlueStacks_Manager
+    instance_info = []
+    for inst_id in INSTANCE_IDS:
+        is_running = inst_id in instances
+        port = BlueStacks_Manager.internal_instance_name(inst_id)
+        adb_p = "5555"
+        try:
+            conf_path = Path(r"C:\ProgramData\BlueStacks_nxt\bluestacks.conf")
+            if conf_path.exists():
+                for l in conf_path.read_text().splitlines():
+                    if l.startswith(f"bst.instance.{port}.adb_port"):
+                        adb_p = l.split("=")[1].strip().replace('"', '')
+        except:
+            pass
+        instance_info.append({
+            "id": inst_id,
+            "running": is_running,
+            "port": adb_p,
+            "status": instances[inst_id].run_status if is_running else "Stopped"
+        })
     return render_template(
         "home.html",
+        instances=instance_info,
+        all_ids=INSTANCE_IDS,
+        active_ids=list(instances.keys()),
         ids=sorted(list(instances.keys())),
     )
 
 @app.route("/instances/<id>", methods=["GET"])
 def handle_instance(id):
     instance = instances.get(id)
-    if not instance: abort(404)
+    if not instance:
+        # Create instance entry on demand when navigating directly
+        instance = Instance(id)
+        instances[id] = instance
+        if bot_pipe:
+            bot_pipe.send({"action": "start", "id": id})
+            
     return render_template(
         "instance.html",
         id=id,
@@ -63,12 +92,14 @@ def handle_instance_start_stop():
             return jsonify(0)
         if id not in instances:
             instances[id] = Instance(id)
-            bot_pipe.send({"action": "start", "id": id})
+            if bot_pipe:
+                bot_pipe.send({"action": "start", "id": id})
         return jsonify(1)
     elif action == "stop":
         instance = instances.pop(id, None)
         if instance:
-            bot_pipe.send({"action": "stop", "id": id})
+            if bot_pipe:
+                bot_pipe.send({"action": "stop", "id": id})
         return jsonify(1)
     return jsonify(0)
 
@@ -106,28 +137,17 @@ def handle_exclude(id):
     if not instance: abort(404)
     if request.method == "POST":
         data = request.json
-        action = data.get("action", "")
-        item = data.get("item", "")
-        if action == "add":
-            instance.exclusions.add(item)
-        elif action == "remove":
-            instance.exclusions.discard(item)
-    return {"exclusions": sorted(list(instance.exclusions))}
+        exclude = data.get("exclude", None)
+        task = data.get("task", None)
+        if exclude is None: abort(400)
+        if exclude:
+            instance.exclusions.add(task)
+        else:
+            instance.exclusions.discard(task)
+    return {"exclusions": list(instance.exclusions)}
 
-def start_server(pipe, port, id=None, debug=False):
+def start_server(pipe, server_port=5000, id=None, debug=False):
     global bot_pipe
     bot_pipe = pipe
-    
-    if not debug:
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
-
-    if id is not None:
-        instances[id] = Instance(id)
-    
-    app.run(port=port, debug=debug)
-
-if __name__ == "__main__":
-    from multiprocessing import Pipe
-    parent_conn, child_conn = Pipe()
-    start_server(child_conn, port=1234)
+    if id: instances[id] = Instance(id)
+    app.run(port=server_port, debug=debug)
