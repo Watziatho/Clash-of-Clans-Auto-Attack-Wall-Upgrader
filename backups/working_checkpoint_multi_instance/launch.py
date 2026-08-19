@@ -1,6 +1,35 @@
 import sys
+import os
 import subprocess
 from pathlib import Path
+import psutil
+
+def cleanup_orphan_bots():
+    current_pid = os.getpid()
+    for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if p.info['pid'] != current_pid and p.info['name'] in ['python.exe', 'python']:
+                cmd = ' '.join(p.info['cmdline'] or [])
+                if 'main.py' in cmd and ('--instance-id' in cmd or '--no-gui' in cmd):
+                    p.kill()
+        except:
+            pass
+
+def reset_log_files():
+    debug_dir = Path("debug")
+    if debug_dir.exists():
+        for log_file in debug_dir.glob("*.log"):
+            try:
+                log_file.write_text("")
+            except:
+                pass
+    app_data_debug = Path.home() / ".CoC_Bot" / "debug"
+    if app_data_debug.exists():
+        for log_file in app_data_debug.glob("*.log"):
+            try:
+                log_file.write_text("")
+            except:
+                pass
 
 def launch_proc(args):
     from log import enable_logging
@@ -23,6 +52,8 @@ def gui_launch(args):
     import utils
     from gui import init_gui, get_gui
     
+    cleanup_orphan_bots()
+    reset_log_files()
     procs = {}
     pipe = init_gui(args.id)
     args.gui_port = get_gui().server_port
@@ -70,6 +101,7 @@ def gui_launch(args):
             if p and p.poll() is None:
                 p.terminate()
                 p.kill()
+        cleanup_orphan_bots()
 
 def launch():
     import utils

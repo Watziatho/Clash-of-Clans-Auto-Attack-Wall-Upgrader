@@ -51,12 +51,13 @@ def init_instance(id):
     INSTANCE_ID = id
     ADB_ADDRESS = BlueStacks_Manager.adb_address
     
-    # Auto-launch BlueStacks instance if it is not already running
+    # Auto-launch BlueStacks instance once if offline
     if not BlueStacks_Manager.check():
         internal_name = BlueStacks_Manager.internal_instance_name
         print(f"BlueStacks instance '{INSTANCE_ID}' ({internal_name}) is offline. Launching BlueStacks...")
         BlueStacks_Manager.start(timeout=90)
         print(f"BlueStacks instance '{INSTANCE_ID}' connected successfully on port {BlueStacks_Manager.adb_port}!")
+    
     if WEB_APP_URL != "":
         if "pythonanywhere.com" in WEB_APP_URL:
             Scheduler.add_job(extend_pythonanywhere_hosting, args=(configs.PA_USERNAME, configs.PA_PASSWORD), trigger="interval", hours=24)
@@ -515,8 +516,6 @@ def start_coc(timeout=60):
                 if x is not None and y is not None:
                     Input_Handler.click(x, y)
             
-            update_coc(timeout=5, from_in_game=True)
-            
             i += 1
         if time.time() - start > timeout:
             stop_coc()
@@ -759,16 +758,11 @@ class BlueStacks_Manager:
             if not Path(bin_path).exists():
                 bin_path = file_search("/", "HD-Player.exe", ["bluestacks"])
             assert Path(bin_path).exists(), f"BlueStacks executable not found at {bin_path}"
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 7
             subprocess.Popen(
                 [bin_path, "--instance", str_target_instance_name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
-                startupinfo=startupinfo,
-                creationflags=subprocess.DETACHED_PROCESS,
             )
         else:
             raise Exception("Unsupported OS")
@@ -996,7 +990,7 @@ class ADB_Manager:
     def is_connected(cls):
         import adbutils
 
-        if cls._adbutils_device is None or cls._minitouch_device is None or cls._uiautomator_device is None:
+        if cls._adbutils_device is None or cls._minitouch_device is None:
             return False
 
         try:
@@ -1024,8 +1018,7 @@ class ADB_Manager:
         try:
             d1 = adbutils.device(addr)
             d2 = MNTDevice(addr)
-            d3 = u2.connect(addr)
-            devices = [d1, d2, d3]
+            devices = [d1, d2, None]
             Exit_Handler.register(d2.stop)
         except (KeyboardInterrupt, SystemExit): raise
         except Exception as e:
@@ -1222,9 +1215,7 @@ class Frame_Handler:
         if use_cached and cls.cached_frame is not None:
             frame = cls.cached_frame.copy()
         else:
-            try: frame = ADB_Manager.adbutils_device.framebuffer() # faster than screenshot but potentially unstable
-            except (KeyboardInterrupt, SystemExit): raise
-            except: frame = ADB_Manager.adbutils_device.screenshot()
+            frame = ADB_Manager.adbutils_device.screenshot()
             frame = np.array(frame)[..., :3]
             frame = cv2.resize(frame, WINDOW_DIMS, interpolation=cv2.INTER_NEAREST)
             cls.cached_frame = frame.copy()
@@ -1355,3 +1346,4 @@ class Dev_Tools:
         if return_results:
             return optimal_size, results
         return optimal_size
+

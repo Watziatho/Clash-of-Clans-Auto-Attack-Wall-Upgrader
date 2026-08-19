@@ -34,13 +34,8 @@ class Attacker:
     
     def _click_return_home(self, timeout=3):
         def locate_return():
-            x, y = Frame_Handler.locate(self.assets["return_home"], thresh=0.7)
+            x, y = Frame_Handler.locate(self.assets["return_home"], thresh=0.85)
             if x is not None and y is not None: return x, y
-            # Check bottom-center green button (Claim Reward / Return Home / Continue)
-            section = Frame_Handler.get_frame_section(0.38, 0.84, 0.62, 0.95, grayscale=False)
-            green_mask = (section[:, :, 1] > section[:, :, 0] + 25) & (section[:, :, 1] > section[:, :, 2] + 25)
-            if green_mask.mean() > 0.08:
-                return 0.50, 0.89
             return None, None
         return click_with_timeout(locate_return, timeout=timeout)
 
@@ -271,13 +266,13 @@ class Attacker:
         
         start_time = time.time()
         
-        # 1. Wait and watch for early finish
+        # 1. Wait and watch for early finish (throttled to 1.5s to minimize CPU/RAM load)
         while time.time() - start_time < duration:
             if self._click_return_home(timeout=0.2):
                 print("Battle finished early! Claiming rewards and returning home...")
                 self._dismiss_end_screens()
                 return True
-            time.sleep(0.5)
+            time.sleep(1.5)
         
         print("Duration reached. Surrendering and returning home...")
         

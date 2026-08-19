@@ -213,6 +213,21 @@
             align-items: center;
             gap: 6px;
         }
+        .btn-copy-log {
+            background: rgba(255, 255, 255, 0.1);
+            color: #c9d1d9;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            padding: 3px 8px;
+            font-size: 0.85em;
+            font-family: 'Rubik', sans-serif;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .btn-copy-log:hover {
+            background: rgba(255, 255, 255, 0.22);
+            color: #fff;
+        }
         .terminal-body {
             height: 380px;
             overflow-y: auto;
@@ -223,6 +238,10 @@
             color: #c9d1d9;
             white-space: pre-wrap;
             word-break: break-all;
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            cursor: text;
         }
         .terminal-body::-webkit-scrollbar {
             width: 6px;
@@ -231,11 +250,6 @@
             background: rgba(255, 255, 255, 0.2);
             border-radius: 3px;
         }
-        .log-info { color: #58a6ff; }
-        .log-attack { color: #f1c40f; }
-        .log-success { color: #3fb950; }
-        .log-warn { color: #d29922; }
-        .log-err { color: #f85149; }
     </style>
 </head>
 <body>
@@ -301,8 +315,10 @@
             <div class="terminal-title">
                 <i class="fas fa-terminal"></i> <span id="current_log_title">main</span> - Live Console Output
             </div>
-            <div>
-                <span id="auto_scroll_status" style="opacity:0.7;"><i class="fas fa-arrow-down"></i> Auto-Scroll</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-copy-log" id="btn_copy_log" onclick="copyActiveLogs()" title="Copy entire log to clipboard">
+                    <i class="fas fa-copy"></i> Copy Log
+                </button>
             </div>
         </div>
         <div class="terminal-body" id="log_terminal">Loading logs...</div>
@@ -413,6 +429,30 @@
             }
         }
 
+        async function copyActiveLogs() {
+            const terminal = document.getElementById('log_terminal');
+            const text = terminal.textContent || "";
+            const copyBtn = document.getElementById('btn_copy_log');
+            try {
+                await navigator.clipboard.writeText(text);
+                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Log';
+                }, 1500);
+            } catch (err) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Log';
+                }, 1500);
+            }
+        }
+
         async function fetchLogs() {
             try {
                 const res = await fetch(`/instances/${currentTab}/logs`);
@@ -421,9 +461,16 @@
                 
                 if (data.logs && data.logs.length > 0) {
                     const fullText = data.logs.join("");
+                    // Only auto-scroll down if user is already near the bottom (within 40px)
+                    const isNearBottom = (terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight) < 40;
+                    
                     logCaches[currentTab] = fullText;
-                    terminal.textContent = fullText;
-                    terminal.scrollTop = terminal.scrollHeight;
+                    if (terminal.textContent !== fullText) {
+                        terminal.textContent = fullText;
+                        if (isNearBottom) {
+                            terminal.scrollTop = terminal.scrollHeight;
+                        }
+                    }
                 } else {
                     terminal.textContent = "No logs yet. Click START to begin.";
                 }
