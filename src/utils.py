@@ -49,8 +49,14 @@ def init_instance(id):
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
-    if configs.AUTO_START_BLUESTACKS: BlueStacks_Manager.init()
     ADB_ADDRESS = BlueStacks_Manager.adb_address
+    
+    # Auto-launch BlueStacks instance if it is not already running
+    if not BlueStacks_Manager.check():
+        internal_name = BlueStacks_Manager.internal_instance_name
+        print(f"BlueStacks instance '{INSTANCE_ID}' ({internal_name}) is offline. Launching BlueStacks...")
+        BlueStacks_Manager.start(timeout=90)
+        print(f"BlueStacks instance '{INSTANCE_ID}' connected successfully on port {BlueStacks_Manager.adb_port}!")
     if WEB_APP_URL != "":
         if "pythonanywhere.com" in WEB_APP_URL:
             Scheduler.add_job(extend_pythonanywhere_hosting, args=(configs.PA_USERNAME, configs.PA_PASSWORD), trigger="interval", hours=24)
