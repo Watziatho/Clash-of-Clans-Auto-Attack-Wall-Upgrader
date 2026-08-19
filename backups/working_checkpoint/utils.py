@@ -36,6 +36,9 @@ def parse_args(debug=None, id=None, gui=None, gui_port=None):
     configs.DEBUG = args.debug if debug is None else debug
     configs.LOCAL_GUI = args.gui if gui is None else gui
     TEMP_CACHE["gui_port"] = args.gui_port if gui_port is None else gui_port
+    if args.gui_port is not None:
+        global WEB_APP_URL
+        WEB_APP_URL = f"http://127.0.0.1:{args.gui_port}"
     if id is not None:
         assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
         args.id = id
@@ -49,8 +52,14 @@ def init_instance(id):
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
-    if configs.AUTO_START_BLUESTACKS: BlueStacks_Manager.init()
     ADB_ADDRESS = BlueStacks_Manager.adb_address
+    
+    print(f"Connecting to instance '{INSTANCE_ID}' at {ADB_ADDRESS}...")
+    if not ADB_Manager.connect(timeout=30):
+        print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
+    else:
+        print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
+    
     if WEB_APP_URL != "":
         if "pythonanywhere.com" in WEB_APP_URL:
             Scheduler.add_job(extend_pythonanywhere_hosting, args=(configs.PA_USERNAME, configs.PA_PASSWORD), trigger="interval", hours=24)
@@ -509,8 +518,6 @@ def start_coc(timeout=60):
                 if x is not None and y is not None:
                     Input_Handler.click(x, y)
             
-            update_coc(timeout=5, from_in_game=True)
-            
             i += 1
         if time.time() - start > timeout:
             stop_coc()
@@ -753,16 +760,11 @@ class BlueStacks_Manager:
             if not Path(bin_path).exists():
                 bin_path = file_search("/", "HD-Player.exe", ["bluestacks"])
             assert Path(bin_path).exists(), f"BlueStacks executable not found at {bin_path}"
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 7
             subprocess.Popen(
                 [bin_path, "--instance", str_target_instance_name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
-                startupinfo=startupinfo,
-                creationflags=subprocess.DETACHED_PROCESS,
             )
         else:
             raise Exception("Unsupported OS")
@@ -990,7 +992,7 @@ class ADB_Manager:
     def is_connected(cls):
         import adbutils
 
-        if cls._adbutils_device is None or cls._minitouch_device is None or cls._uiautomator_device is None:
+        if cls._adbutils_device is None or cls._minitouch_device is None:
             return False
 
         try:
@@ -1010,22 +1012,20 @@ class ADB_Manager:
         if addr is None: addr = ADB_ADDRESS
         if ADB_ABS_DIR != "": os.environ["PATH"] = ADB_ABS_DIR + os.pathsep + os.environ["PATH"]
         if cls.is_connected(): return
-        subprocess.run(["adb", "start-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        flags = 0x08000000 if sys.platform == "win32" else 0
+        subprocess.run(["adb", "start-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
         res = adbutils.adb.connect(addr)
-        if "connected" not in res:
-            subprocess.run(["adb", "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if "connected" not in res and "already connected" not in res:
             raise Exception("Failed to connect to ADB.")
         devices = []
         try:
             d1 = adbutils.device(addr)
             d2 = MNTDevice(addr)
-            d3 = u2.connect(addr)
-            devices = [d1, d2, d3]
+            devices = [d1, d2, None]
             Exit_Handler.register(d2.stop)
         except (KeyboardInterrupt, SystemExit): raise
-        except:
-            subprocess.run(["adb", "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            raise Exception("Failed to get ADB device.")
+        except Exception as e:
+            raise Exception(f"Failed to get ADB device: {e}")
         cls._adbutils_device, cls._minitouch_device, cls._uiautomator_device = devices
     
     @classmethod
@@ -1218,9 +1218,7 @@ class Frame_Handler:
         if use_cached and cls.cached_frame is not None:
             frame = cls.cached_frame.copy()
         else:
-            try: frame = ADB_Manager.adbutils_device.framebuffer() # faster than screenshot but potentially unstable
-            except (KeyboardInterrupt, SystemExit): raise
-            except: frame = ADB_Manager.adbutils_device.screenshot()
+            frame = ADB_Manager.adbutils_device.screenshot()
             frame = np.array(frame)[..., :3]
             frame = cv2.resize(frame, WINDOW_DIMS, interpolation=cv2.INTER_NEAREST)
             cls.cached_frame = frame.copy()
@@ -1351,3 +1349,4 @@ class Dev_Tools:
         if return_results:
             return optimal_size, results
         return optimal_size
+
