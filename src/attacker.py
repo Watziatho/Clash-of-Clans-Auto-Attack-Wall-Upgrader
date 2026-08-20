@@ -266,17 +266,19 @@ class Attacker:
         
         start_time = time.time()
         
-        # 1. Wait and watch for early finish (throttled to 1.5s to minimize CPU/RAM load)
+        # 1. Wait and watch for early finish or instant pause request
         while time.time() - start_time < duration:
+            if not running():
+                print("⏸️ Pause requested during battle! Surrendering immediately to pause cleanly...")
+                break
             if self._click_return_home(timeout=0.2):
                 print("Battle finished early! Claiming rewards and returning home...")
                 self._dismiss_end_screens()
                 return True
-            time.sleep(1.5)
+            time.sleep(0.4)
         
-        print("Duration reached. Surrendering and returning home...")
-        
-        # 2. Click Surrender / End Battle button using template matching
+        # 2. Surrender battle (Surrender button -> Okay button)
+        print("Ending battle and returning home...")
         if self._click_surrender(timeout=3):
             time.sleep(0.3)
             # Confirm surrender dialog (Okay button)
