@@ -506,40 +506,36 @@ def start_coc(timeout=60):
     
     try:
         if not running(): return False
-        to_system_home()
         print("Starting CoC...", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
 
-        cont_templates = [render_text("Continue", "SupercellMagic", s, color=(255, 255, 255)) for s in range(25, 31)]
-
-        i = 0
+        # Launch Clash of Clans directly via package intent
+        ADB_Manager.adbutils_device.shell("am start -n com.supercell.clashofclans/com.supercell.titan.GameApp")
+        
         start = time.time()
         while time.time() - start < timeout:
             if not running(): return False
-            ADB_Manager.adbutils_device.shell(f"am start {'-S' if i==0 else ''} -W -n com.supercell.clashofclans/com.supercell.titan.GameApp")
-            Input_Handler.click_exit(4, 0.1)
             
-            Frame_Handler.get_frame()
+            # Dismiss any login/news/event popups
+            Input_Handler.click_exit(1, 0.1)
+            time.sleep(1.0)
             
+            # Check if arrived in Home Village
             try:
-                get_home_builders(0, return_amount=False, use_cached_frame=True)
-                TEMP_CACHE["location"] = "home_base"
-                break
+                if get_home_builders(0.5, return_amount=False, raise_exception=False):
+                    TEMP_CACHE["location"] = "home_base"
+                    print("CoC started", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
+                    return True
             except (KeyboardInterrupt, SystemExit): raise
             except: pass
-            
-            cont_locs = Frame_Handler.batch_locate(cont_templates, grayscale=True, thresh=0.7, ref="cc", use_cached=True)
-            for x, y in cont_locs:
-                if x is not None and y is not None:
-                    Input_Handler.click(x, y)
-            
-            i += 1
+
         if time.time() - start > timeout:
             stop_coc()
-            raise Exception("Failed to start CoC")
-        print("CoC started", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
+            raise Exception("Failed to start CoC within timeout")
+            
         return True
     except (KeyboardInterrupt, SystemExit): raise
-    except:
+    except Exception as e:
+        if configs.DEBUG: print("start_coc error:", e)
         return False
 
 def stop_coc():
