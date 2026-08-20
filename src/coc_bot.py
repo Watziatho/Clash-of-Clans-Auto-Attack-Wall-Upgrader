@@ -128,6 +128,17 @@ class CoC_Bot:
                 if not exclude_home_attacks:
                     self.attacker.run_home_base()
                 
+                # Ensure home village screen and resource bars are fully visible
+                self.ensure_home_village()
+                
+                # 🧱 Builder-Assisted Wall Upgrades (Only if loot >= reserve + cost)
+                if getattr(configs, "AUTO_UPGRADE_WALLS", True) and running():
+                    try:
+                        from upgrader import WallUpgrader
+                        WallUpgrader.upgrade_walls()
+                    except Exception as e:
+                        if configs.DEBUG: print("Wall upgrade error:", e)
+                
                 update_status(time.time())
                 
                 # Continuous immediate attacks without restarting the app

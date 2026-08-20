@@ -225,6 +225,32 @@ def handle_clear_logs(id):
             pass
     return jsonify(1)
 
+@app.route("/instances/<id>/wall_config", methods=["GET", "POST"])
+def handle_wall_config(id):
+    instance = instances.get(id)
+    if request.method == "POST":
+        data = request.json or {}
+        if instance:
+            if "auto_upgrade_walls" in data:
+                instance.auto_upgrade_walls = bool(data["auto_upgrade_walls"])
+            if "wall_resource_preference" in data:
+                instance.wall_resource_preference = str(data["wall_resource_preference"])
+            if "min_resource_reserve" in data:
+                instance.min_resource_reserve = int(data["min_resource_reserve"])
+        return jsonify({"success": True})
+        
+    if not instance:
+        return jsonify({
+            "auto_upgrade_walls": True,
+            "wall_resource_preference": "ANY",
+            "min_resource_reserve": 500000
+        })
+    return jsonify({
+        "auto_upgrade_walls": getattr(instance, "auto_upgrade_walls", True),
+        "wall_resource_preference": getattr(instance, "wall_resource_preference", "ANY"),
+        "min_resource_reserve": getattr(instance, "min_resource_reserve", 500000)
+    })
+
 def start_server(pipe, server_port=5000, id=None, debug=False):
     global bot_pipe
     bot_pipe = pipe
