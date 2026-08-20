@@ -57,6 +57,16 @@ def gui_launch(args):
     import utils
     from gui import init_gui, get_gui
     
+    # Hide host console window so only the clean modern GUI is shown
+    if sys.platform == "win32" and not getattr(args, "debug", False):
+        try:
+            import ctypes
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 0)
+        except:
+            pass
+
     cleanup_orphan_bots()
     reset_log_files()
     procs = {}
