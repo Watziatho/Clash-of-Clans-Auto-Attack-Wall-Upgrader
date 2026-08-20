@@ -1,6 +1,19 @@
 import sys, collections
+import subprocess
 from pathlib import Path
 from functools import lru_cache
+
+# Suppress all background console window creation on Windows (adb.exe, minitouch, etc.)
+if sys.platform == "win32":
+    _orig_popen = subprocess.Popen
+    def _silent_popen(*args, **kwargs):
+        if "creationflags" not in kwargs:
+            kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+        else:
+            kwargs["creationflags"] |= 0x08000000
+        return _orig_popen(*args, **kwargs)
+    subprocess.Popen = _silent_popen
+
 try:
     import configs
     from configs import *
