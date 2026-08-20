@@ -167,8 +167,9 @@ def handle_end_time(id):
 @app.route("/instances/<id>/running", methods=["GET"])
 def handle_running(id):
     instance = instances.get(id)
-    if not instance: abort(404)
-    time_active = (instance.end_time == 0 or instance.end_time < time.time())
+    if not instance:
+        return {"running": False, "paused": False}
+    time_active = (instance.end_time == 0 or instance.end_time > time.time())
     is_running = time_active and not getattr(instance, "is_paused", False)
     return {"running": is_running, "paused": getattr(instance, "is_paused", False)}
 

@@ -58,7 +58,7 @@ def enable_logging(id):
         rotation="10 MB",
         retention=5,
         compression="zip",
-        enqueue=True,
+        enqueue=False,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
         filter=lambda record: not any(record["name"].startswith(mod) for mod in exclude_modules),
     )

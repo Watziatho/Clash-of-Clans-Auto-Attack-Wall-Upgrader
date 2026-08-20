@@ -1,19 +1,6 @@
 import sys, collections
-import subprocess
 from pathlib import Path
 from functools import lru_cache
-
-# Suppress all background console window creation on Windows (adb.exe, minitouch, etc.)
-if sys.platform == "win32":
-    _orig_popen_init = subprocess.Popen.__init__
-    def _silent_popen_init(self, *args, **kwargs):
-        if "creationflags" not in kwargs:
-            kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
-        else:
-            kwargs["creationflags"] |= 0x08000000
-        _orig_popen_init(self, *args, **kwargs)
-    subprocess.Popen.__init__ = _silent_popen_init
-
 try:
     import configs
     from configs import *
@@ -41,17 +28,18 @@ def parse_args(debug=None, id=None, gui=None, gui_port=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action="store_true", default=configs.DEBUG, help="Enable debug mode")
-    parser.add_argument("--id", "--instance-id", type=str, default=None, help="Instance ID")
-    parser.add_argument("--gui", action="store_true", default=configs.LOCAL_GUI, help="Run with GUI")
-    parser.add_argument("--no-gui", dest="gui", action="store_false", help="Run in CLI mode without GUI")
+    parser.add_argument("--id", "--instance-id", dest="id", type=str, default=None, help="Instance ID")
+    parser.add_argument("--gui", dest="gui", action="store_true", default=configs.LOCAL_GUI, help="Run with GUI")
+    parser.add_argument("--no-gui", dest="gui", action="store_false", help="Run without GUI")
     parser.add_argument("--gui-port", type=int, default=None, help="GUI port")
     args = parser.parse_args()
     configs.DEBUG = args.debug if debug is None else debug
     configs.LOCAL_GUI = args.gui if gui is None else gui
-    TEMP_CACHE["gui_port"] = args.gui_port if gui_port is None else gui_port
-    if args.gui_port is not None:
+    port = args.gui_port if gui_port is None else gui_port
+    TEMP_CACHE["gui_port"] = port
+    if port is not None:
         global WEB_APP_URL
-        WEB_APP_URL = f"http://127.0.0.1:{args.gui_port}"
+        WEB_APP_URL = f"http://127.0.0.1:{port}"
     if id is not None:
         assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
         args.id = id
@@ -61,8 +49,7 @@ def parse_args(debug=None, id=None, gui=None, gui_port=None):
 
 def init_instance(id):
     global INSTANCE_ID, ADB_ADDRESS
-    import requests
-    import subprocess
+    import requests, subprocess
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
@@ -78,15 +65,14 @@ def init_instance(id):
             bin_path = BLUESTACKS_BIN_PATH if BLUESTACKS_BIN_PATH != "" else r"C:\Program Files\BlueStacks_nxt\HD-Player.exe"
             subprocess.Popen([bin_path, "--instance", internal_name])
             print(f"Waiting for BlueStacks '{INSTANCE_ID}' to initialize on {ADB_ADDRESS}...")
-            if ADB_Manager.connect(timeout=60):
-                print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
-            else:
-                print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
         except Exception as e:
-            print(f"Error launching BlueStacks for '{INSTANCE_ID}': {e}")
-    else:
-        print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
+            print(f"Failed to launch BlueStacks: {e}")
+        
+        # 3. Wait up to 60s for BlueStacks & ADB to become ready
+        if not ADB_Manager.connect(timeout=60):
+            raise Exception(f"Could not connect to ADB on {ADB_ADDRESS} after starting BlueStacks.")
     
+    print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
     if WEB_APP_URL != "":
         if "pythonanywhere.com" in WEB_APP_URL:
             Scheduler.add_job(extend_pythonanywhere_hosting, args=(configs.PA_USERNAME, configs.PA_PASSWORD), trigger="interval", hours=24)
@@ -519,36 +505,49 @@ def start_coc(timeout=60):
     
     try:
         if not running(): return False
+        to_system_home()
         print("Starting CoC...", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
 
-        # Launch Clash of Clans directly via package intent
-        ADB_Manager.adbutils_device.shell("am start -n com.supercell.clashofclans/com.supercell.titan.GameApp")
-        
+        cont_templates = [render_text("Continue", "SupercellMagic", s, color=(255, 255, 255)) for s in range(25, 31)]
+
+        i = 0
         start = time.time()
         while time.time() - start < timeout:
             if not running(): return False
+            ADB_Manager.adbutils_device.shell(f"am start {'-S' if i==0 else ''} -W -n com.supercell.clashofclans/com.supercell.titan.GameApp")
+            Input_Handler.click_exit(4, 0.1)
             
-            # Dismiss any login/news/event popups
-            Input_Handler.click_exit(1, 0.1)
-            time.sleep(1.0)
+            Frame_Handler.get_frame()
             
-            # Check if arrived in Home Village
             try:
-                if get_home_builders(0.5, return_amount=False, raise_exception=False):
-                    TEMP_CACHE["location"] = "home_base"
-                    print("CoC started", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
-                    return True
+                get_home_builders(0, return_amount=False, use_cached_frame=True)
+                TEMP_CACHE["location"] = "home_base"
+                break
             except (KeyboardInterrupt, SystemExit): raise
             except: pass
-
+            
+            try:
+                get_builder_builders(0, return_amount=False, use_cached_frame=True)
+                TEMP_CACHE["location"] = "builder_base"
+                break
+            except (KeyboardInterrupt, SystemExit): raise
+            except: pass
+            
+            cont_locs = Frame_Handler.batch_locate(cont_templates, grayscale=True, thresh=0.7, ref="cc", use_cached=True)
+            for x, y in cont_locs:
+                if x is not None and y is not None:
+                    Input_Handler.click(x, y)
+            
+            update_coc(timeout=5, from_in_game=True)
+            
+            i += 1
         if time.time() - start > timeout:
             stop_coc()
-            raise Exception("Failed to start CoC within timeout")
-            
+            raise Exception("Failed to start CoC")
+        print("CoC started", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
         return True
     except (KeyboardInterrupt, SystemExit): raise
-    except Exception as e:
-        if configs.DEBUG: print("start_coc error:", e)
+    except:
         return False
 
 def stop_coc():
@@ -568,7 +567,7 @@ def update_coc(timeout=10, from_in_game=False):
             conn(text="UPDATE").click(timeout=0)
         except (KeyboardInterrupt, SystemExit): raise
         except:
-            print("Failed to click update button")
+            if configs.DEBUG: print("Failed to click update button")
             if not from_in_game: to_system_home()
             return
     
@@ -576,10 +575,70 @@ def update_coc(timeout=10, from_in_game=False):
         conn(text="Update").click(timeout=timeout)
     except (KeyboardInterrupt, SystemExit): raise
     except:
-        print("Failed to click update button")
+        if configs.DEBUG: print("Failed to click update button")
         pass
     if not from_in_game: to_system_home()
 
+def to_builder_base(ref_cache=False):
+    import cv2, time, numpy as np
+    
+    if ref_cache and TEMP_CACHE.get("location") == "builder_base": return
+    
+    TEMP_CACHE["location"] = "builder_base"
+    
+    try:
+        get_builder_builders(0, return_amount=False)
+        return
+    except (KeyboardInterrupt, SystemExit): raise
+    except: pass
+    
+    for _ in range(3):
+        Input_Handler.zoom(dir="in")
+    for _ in range(2):
+        Input_Handler.zoom(dir="out", percent=0.75)
+    for _ in range(3):
+        Input_Handler.swipe_right()
+        Input_Handler.swipe_up()
+    
+    scale_templates = []
+    for scale in np.arange(0.43, 0.47, 0.01):
+        template = cv2.resize(Asset_Manager.misc_assets["boat_icon"], None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+        scale_templates.append(template)
+    
+    for _ in range(5):
+        xys = Frame_Handler.batch_locate(scale_templates, grayscale=True, thresh=0.7, ref="cc")
+        for x, y in xys:
+            if x is None or y is None: continue
+            Input_Handler.click(x, y)
+            time.sleep(2)
+            return
+        Input_Handler.swipe(x1=0.5, y1=0.5, x2=0.25, y2=0.75, hold_end_time=100)
+
+def get_builder_builders(timeout=60, return_amount=True, raise_exception=True, use_cached_frame=False):
+    import time, cv2
+    
+    start = time.time()
+    while True:
+        try:
+            section = Frame_Handler.get_frame_section(0.565, 0.04, -0.38, 0.08, high_contrast=True, use_cached=use_cached_frame)
+            if configs.DEBUG: Frame_Handler.save_frame(section, "debug/builder_builders.png")
+            
+            slash = cv2.cvtColor(Asset_Manager.misc_assets["slash"], cv2.COLOR_RGB2GRAY)
+            res = cv2.matchTemplate(section, slash, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(res)
+            if raise_exception and max_val < 0.9: raise Exception("Slash not found")
+            
+            if not return_amount: return max_val >= 0.9
+            
+            text = fix_digits(''.join(OCR_Handler.get_text(section)).replace(' ', '').replace('/', ''))
+            available = int(text[0])
+            return available
+        except (KeyboardInterrupt, SystemExit): raise
+        except Exception as e:
+            if configs.DEBUG: print("get_builder_builders", e)
+        time.sleep(0.1)
+        if time.time() > start + timeout: break
+    raise Exception("Failed to get builder builders")
 
 def require_exit(n=5, delay=0.1):
     def decorator(func):
@@ -625,17 +684,12 @@ class Exit_Handler:
 
     @classmethod
     def setup_signal_handlers(cls):
-        import signal, threading
-        if threading.current_thread() is not threading.main_thread():
-            return
-        try:
-            signals = [signal.SIGINT, signal.SIGTERM]
-            if sys.platform != "win32":
-                signals.append(signal.SIGHUP)
-            for sig in signals:
-                signal.signal(sig, cls.handle_sig)
-        except (ValueError, AttributeError):
-            pass
+        import signal
+        signals = [signal.SIGINT, signal.SIGTERM]
+        if sys.platform != "win32":
+            signals.append(signal.SIGHUP)
+        for sig in signals:
+            signal.signal(sig, cls.handle_sig)
 
 Exit_Handler.setup_signal_handlers()
 
@@ -700,6 +754,10 @@ class BlueStacks_Manager:
     @classproperty
     def internal_instance_name(cls, instance_id=None):
         import json
+        
+        if cls._internal_instance_name is not None:
+            return cls._internal_instance_name
+        
         instance_id = instance_id if instance_id is not None else INSTANCE_ID
         
         if cls._mim_path is None or not Path(cls._mim_path).exists():
@@ -712,20 +770,21 @@ class BlueStacks_Manager:
             if cls._mim_path is None or not Path(cls._mim_path).exists():
                 cls._mim_path = file_search("/", "MimMetaData.json", ["bluestacks"])
 
-        if cls._mim_path is not None and Path(cls._mim_path).exists():
-            try:
+        if cls._internal_instance_name is None and cls._mim_path is not None:
+            if cls._mim_path is not None and Path(cls._mim_path).exists():
                 mim_data = json.loads(Path(cls._mim_path).read_text())
                 instances = {instance['Name']: instance["InstanceName"] for instance in mim_data["Organization"]}
-                return instances.get(instance_id, "Pie64")
-            except:
-                pass
+                cls._internal_instance_name = instances.get(instance_id, None)
+            else:
+                if configs.DEBUG: print("MimMetaData.json not found, using default instance.")
         
-        return "Pie64"
+        return cls._internal_instance_name
     
     @classproperty
     def adb_port(cls):
-        internal_name = cls.internal_instance_name
-        
+        if cls._adb_port is not None:
+            return cls._adb_port
+
         if cls._conf_path is None or not Path(cls._conf_path).exists():
             if sys.platform == "darwin":
                 cls._conf_path = "/Users/Shared/Library/Application Support/BlueStacks/bluestacks.conf"
@@ -736,16 +795,18 @@ class BlueStacks_Manager:
             if cls._conf_path is None or not Path(cls._conf_path).exists():
                 cls._conf_path = file_search("/", "bluestacks.conf", ["bluestacks"])
 
-        if cls._conf_path is not None and Path(cls._conf_path).exists():
-            try:
+        if cls._adb_port is None and cls._conf_path is not None:
+            if cls._conf_path is not None and Path(cls._conf_path).exists():
                 conf_data = Path(cls._conf_path).read_text()
                 for line in conf_data.splitlines():
-                    if line.startswith(f"bst.instance.{internal_name}.adb_port"):
-                        return line.split("=")[1].strip().replace('"', '')
-            except:
-                pass
-        
-        return "5555"
+                    if line.startswith(f"bst.instance.{cls.internal_instance_name}.adb_port"):
+                        cls._adb_port = line.split("=")[1].strip().replace('"', '')
+                        break
+            else:
+                if configs.DEBUG: print("bluestacks.conf not found, using default adb port.")
+                cls._adb_port = "5555"
+
+        return cls._adb_port
 
     @classproperty
     def adb_address(cls):
@@ -783,11 +844,16 @@ class BlueStacks_Manager:
             if not Path(bin_path).exists():
                 bin_path = file_search("/", "HD-Player.exe", ["bluestacks"])
             assert Path(bin_path).exists(), f"BlueStacks executable not found at {bin_path}"
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 7
             subprocess.Popen(
                 [bin_path, "--instance", str_target_instance_name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
+                startupinfo=startupinfo,
+                creationflags=subprocess.DETACHED_PROCESS,
             )
         else:
             raise Exception("Unsupported OS")
@@ -856,6 +922,105 @@ class Task_Handler:
         return None
 
     @classmethod
+    def home_base_priority_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "home_base_priority" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.PRIORITY_HOME_BASE_UPGRADES
+
+    @classmethod
+    def home_lab_priority_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "home_lab_priority" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.PRIORITY_HOME_LAB_UPGRADES
+    
+    @classmethod
+    def builder_base_priority_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "builder_base_priority" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.PRIORITY_BUILDER_BASE_UPGRADES
+    
+    @classmethod
+    def builder_lab_priority_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "builder_lab_priority" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.PRIORITY_BUILDER_LAB_UPGRADES
+
+    @classmethod
+    def heroes_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "heroes" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.UPGRADE_HEROES
+
+    @classmethod
+    def home_base_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "home_base" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.UPGRADE_HOME_BASE
+
+    @classmethod
+    def builder_base_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "builder_base" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.UPGRADE_BUILDER_BASE
+
+    @classmethod
+    def home_lab_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "home_lab" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.UPGRADE_HOME_LAB
+
+    @classmethod
+    def builder_lab_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "builder_lab" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.UPGRADE_BUILDER_LAB
+
+    @classmethod
     def home_attacks_excluded(cls, **kwargs):
         try:
             exclusions = cls.get_exclusions(**kwargs)
@@ -866,10 +1031,129 @@ class Task_Handler:
         except:
             return not configs.ATTACK_HOME_BASE
 
+    @classmethod
+    def builder_attacks_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "builder_attacks" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.ATTACK_BUILDER_BASE
+
+    @classmethod
+    def lab_assistant_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "lab_assistant" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.ASSIGN_LAB_ASSISTANT
+
+    @classmethod
+    def builder_apprentice_excluded(cls, **kwargs):
+        try:
+            exclusions = cls.get_exclusions(**kwargs)
+            if exclusions is not None:
+                return "builder_apprentice" in exclusions
+            raise Exception("No external exclusion source available")
+        except (KeyboardInterrupt, SystemExit): raise
+        except:
+            return not configs.ASSIGN_BUILDER_APPRENTICE
+
+def running():
+    import requests
+    
+    url = WEB_APP_URL
+    if not url and TEMP_CACHE.get("gui_port"):
+        url = f"http://127.0.0.1:{TEMP_CACHE['gui_port']}"
+        
+    if url:
+        try:
+            response = requests.get(
+                f"{url}/instances/{INSTANCE_ID}/running",
+                timeout=(0.5, 1)
+            )
+            if response.status_code == 200:
+                return response.json().get("running", False)
+            return False
+        except (KeyboardInterrupt, SystemExit): raise
+        except Exception as e:
+            if configs.DEBUG: print("running error:", e)
+            return True
+            
+    return True
+
+def update_status(status):
+    import requests
+    
+    if status == "now":
+        status_text = "Running"
+    elif isinstance(status, (int, float)):
+        status_text = "Idle"
+    else:
+        status_text = str(status)
+        
+    url = WEB_APP_URL
+    if not url and TEMP_CACHE.get("gui_port"):
+        url = f"http://127.0.0.1:{TEMP_CACHE['gui_port']}"
+        
+    if url:
+        try:
+            requests.post(
+                f"{url}/instances/{INSTANCE_ID}/status",
+                json={"status": status_text},
+                timeout=(0.5, 1)
+            )
+        except (KeyboardInterrupt, SystemExit): raise
+        except Exception as e:
+            if configs.DEBUG: print("update_status error:", e)
+
 class OCR_Handler:
     
     backoff_time = 0
+    rapid_reader = None
+    easy_reader = None
     
+    @classmethod
+    def preprocess_for_ocr(cls, img, target="white"):
+        """
+        Color-Range Masking Preprocessor (from NX-ClashClient):
+        Isolates exact text color ranges (#E0E0E0 white font, etc.)
+        to eliminate semi-transparent background bleed (grass, trees, stone).
+        """
+        import cv2, numpy as np
+        if img is None or img.size == 0:
+            return img
+
+        # Upscale 2x for crisper character recognition
+        scaled = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+        tol = 30
+
+        if target in ["white", "home_resources", "upgrades_menu"]:
+            # White text: #E0E0E0 (224, 224, 224) with tolerance
+            lower = np.array([max(0, 224 - tol), max(0, 224 - tol), max(0, 224 - tol)])
+            upper = np.array([255, 255, 255])
+            mask = cv2.inRange(scaled, lower, upper)
+            kernel = np.ones((2, 2), np.uint8)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            return mask
+            
+        elif target == "enemy_gold":
+            lower = np.array([max(0, 179 - tol), max(0, 220 - tol), max(0, 224 - tol)])
+            upper = np.array([min(255, 204 + tol), min(255, 251 + tol), min(255, 255 + tol)])
+            return cv2.inRange(scaled, lower, upper)
+            
+        elif target == "enemy_elixir":
+            lower = np.array([max(0, 222 - tol), max(0, 204 - tol), max(0, 224 - tol)])
+            upper = np.array([min(255, 253 + tol), min(255, 232 + tol), min(255, 255 + tol)])
+            return cv2.inRange(scaled, lower, upper)
+
+        return scaled
+
     @classmethod
     def get_text(cls, frame):
         import time
@@ -882,11 +1166,29 @@ class OCR_Handler:
 
     @classmethod
     def local_ocr(cls, frame):
-        if not hasattr(cls, 'reader'):
-            import easyocr
-            cls.reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-        result = cls.reader.readtext(frame, detail=0)
-        return [text for text in result if text.strip()]
+        # 1. Try ultra-fast RapidOCR (ONNX, ~20ms)
+        try:
+            if cls.rapid_reader is None:
+                from rapidocr_onnxruntime import RapidOCR
+                cls.rapid_reader = RapidOCR()
+            
+            results, _ = cls.rapid_reader(frame)
+            if results:
+                return [item[1].strip() for item in results if item[1].strip()]
+            return []
+        except Exception as e:
+            if configs.DEBUG: print("RapidOCR fallback to EasyOCR:", e)
+
+        # 2. Seamless Fallback to EasyOCR
+        try:
+            if cls.easy_reader is None:
+                import easyocr
+                cls.easy_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+            result = cls.easy_reader.readtext(frame, detail=0)
+            return [text.strip() for text in result if text.strip()]
+        except Exception as e:
+            if configs.DEBUG: print("EasyOCR error:", e)
+            return []
 
     @classmethod
     def external_ocr(cls, frame):
@@ -917,6 +1219,7 @@ class OCR_Handler:
 class Asset_Manager:
     fonts = {}
     misc_assets = {}
+    upgrader_assets = {}
     attacker_assets = {}
     
     @staticmethod
@@ -926,12 +1229,7 @@ class Asset_Manager:
         if hasattr(sys, "_MEIPASS"):
             base_path = Path(sys._MEIPASS)
         else:
-            current = Path(__file__).resolve().parent
-            base_path = current.parent
-            for p in [current] + list(current.parents):
-                if (p / "assets").exists():
-                    base_path = p
-                    break
+            base_path = Path(__file__).parent.parent.resolve()
         return base_path / rel_path
     
     @classmethod
@@ -951,6 +1249,16 @@ class Asset_Manager:
             if not file.endswith('.png'): continue
             assets[file.replace('.png', '')] = cv2.cvtColor(cv2.imread(path / file, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
         cls.misc_assets = assets
+    
+    @classmethod
+    def load_upgrader_assets(cls):
+        import os, cv2
+        assets = {}
+        path = cls.resource_path("assets/upgrader")
+        for file in os.listdir(path):
+            if not file.endswith('.png'): continue
+            assets[file.replace('.png', '')] = cv2.cvtColor(cv2.imread(path / file, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+        cls.upgrader_assets = assets
 
     @classmethod
     def load_attacker_assets(cls):
@@ -963,6 +1271,7 @@ class Asset_Manager:
         cls.attacker_assets = assets
 
 Asset_Manager.load_misc_assets()
+Asset_Manager.load_upgrader_assets()
 Asset_Manager.load_attacker_assets()
 Asset_Manager.load_fonts()
 
@@ -1029,7 +1338,6 @@ class ADB_Manager:
     @classmethod
     def connect_once(cls, addr=None):
         import subprocess, adbutils, os
-        import uiautomator2 as u2
         from pyminitouch import MNTDevice
         
         if addr is None: addr = ADB_ADDRESS
@@ -1379,4 +1687,3 @@ class Dev_Tools:
         if return_results:
             return optimal_size, results
         return optimal_size
-
