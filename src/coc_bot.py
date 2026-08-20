@@ -17,24 +17,36 @@ class CoC_Bot:
     def ensure_home_village(self):
         """
         State-Aware Game Recovery:
-        Inspects what screen the game is currently on and recovers cleanly to Home Village:
-        - If in Home Village -> returns True immediately without reloading.
-        - If in Battle -> Surrenders, confirms Okay, dismisses end screens.
-        - If on Victory / End-of-battle screen -> Dismisses end screens to return home.
-        - If on Confirmation / Reward popup -> Clicks exit/dismiss.
-        - If game closed / in Android launcher -> Launches CoC and waits for Home Village.
+        1. Checks if Clash of Clans is running and focused in the foreground.
+           If NOT focused -> launches CoC immediately without clicking on desktop ads.
+        2. If CoC is in foreground:
+           - Already in Home Village? -> return True immediately.
+           - In active battle? -> clicks Surrender -> Okay -> Return Home.
+           - In results screen? -> clicks Return Home -> dismisses reward cards.
         """
-        print("Checking current game screen state...")
+        print("Checking game state...")
         
-        # 1. Quick check: already in Home Village?
+        # 1. Verify if CoC is currently the active foreground app
         try:
-            if get_home_builders(0.3, return_amount=False, raise_exception=False):
+            focus_info = ADB_Manager.adbutils_device.shell("dumpsys window")
+            is_focused = "com.supercell.clashofclans" in focus_info
+        except:
+            is_focused = False
+            
+        if not is_focused:
+            print("CoC is not the active foreground app. Launching Clash of Clans directly...")
+            start_coc()
+            return True
+            
+        # 2. CoC is open: Check if already in Home Village
+        try:
+            if get_home_builders(0.5, return_amount=False, raise_exception=False):
                 print("Already in Home Village!")
                 return True
         except:
             pass
 
-        # 2. Check if currently in Battle (Look for Surrender / End Battle button)
+        # 3. Check if in Battle (only if surrender template is detected)
         try:
             if self.attacker._click_surrender(timeout=1):
                 print("Detected active battle! Surrendering and returning home...")
@@ -47,26 +59,29 @@ class CoC_Bot:
         except Exception as e:
             if configs.DEBUG: print("Battle surrender check error:", e)
 
-        # 3. Check if on Victory / Results / Reward Screen
+        # 4. Check if on Victory / Results screen (only if return_home template is detected)
         try:
-            if self.attacker._dismiss_end_screens(max_attempts=5):
-                print("Dismissed end screens. Arrived in Home Village!")
-                return True
+            if self.attacker._click_return_home(timeout=1):
+                print("On results screen. Returning home...")
+                self.attacker._dismiss_end_screens(max_attempts=5)
+                if get_home_builders(0.5, return_amount=False, raise_exception=False):
+                    print("Arrived in Home Village!")
+                    return True
         except Exception as e:
             if configs.DEBUG: print("End screen check error:", e)
 
-        # 4. Try dismissing popups, news, or modals
+        # 5. Dismiss in-game popups/news
         try:
-            Input_Handler.click_exit(2, 0.1)
-            time.sleep(0.3)
+            Input_Handler.click_exit(1, 0.1)
+            time.sleep(0.5)
             if get_home_builders(0.5, return_amount=False, raise_exception=False):
                 print("Dismissed popups. In Home Village!")
                 return True
         except:
             pass
 
-        # 5. Fallback: If not in game, launch CoC
-        print("CoC not in active village. Starting game...")
+        # 6. Fallback if unresponsive
+        print("CoC not in active village. Launching game...")
         start_coc()
         return True
     
