@@ -52,22 +52,21 @@ def init_instance(id):
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
-    
-    # Auto-launch BlueStacks instance if it is not already running
-    if not BlueStacks_Manager.check():
-        internal_name = BlueStacks_Manager.internal_instance_name
-        print(f"BlueStacks instance '{INSTANCE_ID}' ({internal_name}) is offline. Launching BlueStacks...")
-        try:
-            BlueStacks_Manager.start(timeout=90)
-            print(f"BlueStacks instance '{INSTANCE_ID}' started on port {BlueStacks_Manager.adb_port}!")
-        except Exception as e:
-            print(f"Error launching BlueStacks for '{INSTANCE_ID}': {e}")
-
     ADB_ADDRESS = BlueStacks_Manager.adb_address
     
     print(f"Connecting to instance '{INSTANCE_ID}' at {ADB_ADDRESS}...")
     if not ADB_Manager.connect(timeout=30):
-        print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
+        # If connection failed and auto-start enabled, try launching
+        if getattr(configs, "AUTO_START_BLUESTACKS", False):
+            try:
+                print(f"Launching BlueStacks for instance '{INSTANCE_ID}'...")
+                BlueStacks_Manager.start(timeout=60)
+                ADB_ADDRESS = BlueStacks_Manager.adb_address
+                ADB_Manager.connect(timeout=30)
+            except Exception as e:
+                print(f"Error starting BlueStacks: {e}")
+        else:
+            print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
     else:
         print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
     
@@ -1031,6 +1030,13 @@ class ADB_Manager:
         devices = []
         try:
             d1 = adbutils.device(addr)
+            # Remove any stale port forwards for minitouch to prevent connection hang
+            try:
+                for forward in d1.forward_list():
+                    if "minitouch" in str(forward):
+                        d1.forward_remote(forward.local)
+            except:
+                pass
             d2 = MNTDevice(addr)
             devices = [d1, d2, None]
             Exit_Handler.register(d2.stop)
