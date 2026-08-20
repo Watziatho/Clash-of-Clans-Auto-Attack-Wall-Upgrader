@@ -49,24 +49,28 @@ def parse_args(debug=None, id=None, gui=None, gui_port=None):
 def init_instance(id):
     global INSTANCE_ID, ADB_ADDRESS
     import requests
+    import subprocess
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
     ADB_ADDRESS = BlueStacks_Manager.adb_address
     
     print(f"Connecting to instance '{INSTANCE_ID}' at {ADB_ADDRESS}...")
-    if not ADB_Manager.connect(timeout=30):
-        # If connection failed and auto-start enabled, try launching
-        if getattr(configs, "AUTO_START_BLUESTACKS", False):
-            try:
-                print(f"Launching BlueStacks for instance '{INSTANCE_ID}'...")
-                BlueStacks_Manager.start(timeout=60)
-                ADB_ADDRESS = BlueStacks_Manager.adb_address
-                ADB_Manager.connect(timeout=30)
-            except Exception as e:
-                print(f"Error starting BlueStacks: {e}")
-        else:
-            print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
+    # 1. Quick connect check (2s) to see if instance is already running
+    if not ADB_Manager.connect(timeout=2):
+        # 2. Instance is offline: automatically launch BlueStacks
+        internal_name = BlueStacks_Manager.internal_instance_name
+        print(f"BlueStacks instance '{INSTANCE_ID}' ({internal_name}) is offline. Launching BlueStacks...")
+        try:
+            bin_path = BLUESTACKS_BIN_PATH if BLUESTACKS_BIN_PATH != "" else r"C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+            subprocess.Popen([bin_path, "--instance", internal_name])
+            print(f"Waiting for BlueStacks '{INSTANCE_ID}' to initialize on {ADB_ADDRESS}...")
+            if ADB_Manager.connect(timeout=60):
+                print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
+            else:
+                print(f"Failed to connect to ADB for instance '{INSTANCE_ID}' at {ADB_ADDRESS}.")
+        except Exception as e:
+            print(f"Error launching BlueStacks for '{INSTANCE_ID}': {e}")
     else:
         print(f"Successfully connected to ADB for '{INSTANCE_ID}' ({ADB_ADDRESS})!")
     
