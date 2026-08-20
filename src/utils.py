@@ -52,6 +52,17 @@ def init_instance(id):
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
+    
+    # Auto-launch BlueStacks instance if it is not already running
+    if not BlueStacks_Manager.check():
+        internal_name = BlueStacks_Manager.internal_instance_name
+        print(f"BlueStacks instance '{INSTANCE_ID}' ({internal_name}) is offline. Launching BlueStacks...")
+        try:
+            BlueStacks_Manager.start(timeout=90)
+            print(f"BlueStacks instance '{INSTANCE_ID}' started on port {BlueStacks_Manager.adb_port}!")
+        except Exception as e:
+            print(f"Error launching BlueStacks for '{INSTANCE_ID}': {e}")
+
     ADB_ADDRESS = BlueStacks_Manager.adb_address
     
     print(f"Connecting to instance '{INSTANCE_ID}' at {ADB_ADDRESS}...")
