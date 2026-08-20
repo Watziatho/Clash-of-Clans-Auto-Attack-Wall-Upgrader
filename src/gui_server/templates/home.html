@@ -433,11 +433,12 @@
         }
 
         .terminal-output {
+            text-align: left !important;
             background: var(--bg-terminal);
             padding: 12px 14px;
             height: 250px;
             overflow-y: auto;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
             font-size: 0.76em;
             line-height: 1.55;
             color: #cbd5e1;
@@ -497,7 +498,7 @@
     <!-- 👑 Header -->
     <div class="header-bar">
         <div class="header-brand">
-            <img src="{{ url_for('static', filename='barbarian.png') }}" alt="CoC Bot">
+            <img src="{{ url_for('static', filename='coc_bot_logo.png') }}" alt="CoC Bot">
             <div class="header-title-box">
                 <div class="header-title">CoC Bot Manager</div>
                 <div class="header-subtitle">Multi-Base Automation Controller</div>
