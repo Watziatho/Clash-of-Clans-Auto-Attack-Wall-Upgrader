@@ -2,7 +2,7 @@
 title Build CoC Bot Executable
 cd /d %~dp0
 echo Building CoC_Bot.exe with PyInstaller...
-pyinstaller --noconfirm --onedir --windowed --name "CoC_Bot" --add-data "assets;assets" --add-data "src/gui_server;gui_server" --paths "src" "src/main.py"
+pyinstaller --noconfirm --onedir --windowed --icon "assets/icon.ico" --name "CoC_Bot" --add-data "assets;assets" --add-data "src/gui_server;gui_server" --paths "src" "src/main.py"
 if %errorlevel% neq 0 (
     echo.
     echo Build failed!
