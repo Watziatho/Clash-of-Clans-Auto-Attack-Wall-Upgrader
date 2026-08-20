@@ -487,6 +487,8 @@
             transform: translateY(10px);
             transition: all 0.2s ease;
             pointer-events: none;
+        }
+
         /* 🧱 Wall Upgrader Settings Card */
         .wall-card {
             background: var(--bg-card);
@@ -500,6 +502,32 @@
             justify-content: space-between;
             gap: 15px;
             flex-wrap: wrap;
+        }
+
+        .btn-wall-set {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-family: inherit;
+            font-size: 0.78em;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-wall-set:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.45);
+        }
+
+        .btn-wall-set:active {
+            transform: translateY(1px);
         }
 
         .wall-header {
@@ -706,9 +734,16 @@
                     </select>
                 </div>
                 <div class="wall-control-group">
+                    <label class="wall-label">Min Trigger</label>
+                    <input type="number" id="wall_trigger_{{ inst.id }}" class="wall-input" value="6000000" step="500000" min="0" onchange="saveWallConfig('{{ inst.id }}')">
+                </div>
+                <div class="wall-control-group">
                     <label class="wall-label">Reserve</label>
                     <input type="number" id="wall_reserve_{{ inst.id }}" class="wall-input" value="500000" step="100000" min="0" onchange="saveWallConfig('{{ inst.id }}')">
                 </div>
+                <button class="btn-wall-set" onclick="saveWallConfig('{{ inst.id }}')">
+                    <i class="fa-solid fa-check"></i> SET
+                </button>
             </div>
         </div>
 
@@ -924,9 +959,11 @@
                 .then(cfg => {
                     const toggle = document.getElementById('wall_toggle_' + id);
                     const res = document.getElementById('wall_res_' + id);
+                    const trigger = document.getElementById('wall_trigger_' + id);
                     const reserve = document.getElementById('wall_reserve_' + id);
                     if (toggle) toggle.checked = cfg.auto_upgrade_walls;
                     if (res) res.value = cfg.wall_resource_preference;
+                    if (trigger) trigger.value = cfg.min_wall_trigger_loot || 6000000;
                     if (reserve) reserve.value = cfg.min_resource_reserve;
                 }).catch(() => {});
         }
@@ -934,11 +971,13 @@
         function saveWallConfig(id) {
             const toggle = document.getElementById('wall_toggle_' + id);
             const res = document.getElementById('wall_res_' + id);
+            const trigger = document.getElementById('wall_trigger_' + id);
             const reserve = document.getElementById('wall_reserve_' + id);
             
             const payload = {
                 auto_upgrade_walls: toggle ? toggle.checked : true,
                 wall_resource_preference: res ? res.value : "ANY",
+                min_wall_trigger_loot: trigger ? parseInt(trigger.value, 10) : 6000000,
                 min_resource_reserve: reserve ? parseInt(reserve.value, 10) : 500000
             };
 

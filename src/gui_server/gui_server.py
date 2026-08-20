@@ -225,9 +225,25 @@ def handle_clear_logs(id):
             pass
     return jsonify(1)
 
+def log_instance_message(inst_id, message):
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    formatted_msg = f"{timestamp} | INFO | {message}\n"
+    
+    for base_dir in [Path("debug"), Path.home() / ".CoC_Bot" / "debug"]:
+        try:
+            p = base_dir / f"{inst_id}.log"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "a", encoding="utf-8", errors="replace") as f:
+                f.write(formatted_msg)
+        except:
+            pass
+
 @app.route("/instances/<id>/wall_config", methods=["GET", "POST"])
 def handle_wall_config(id):
     instance = instances.get(id)
+    cfg_file = Path("debug") / f"{id}_wall_config.json"
+    
     if request.method == "POST":
         data = request.json or {}
         if instance:
@@ -237,18 +253,59 @@ def handle_wall_config(id):
                 instance.wall_resource_preference = str(data["wall_resource_preference"])
             if "min_resource_reserve" in data:
                 instance.min_resource_reserve = int(data["min_resource_reserve"])
+            if "min_wall_trigger_loot" in data:
+                instance.min_wall_trigger_loot = int(data["min_wall_trigger_loot"])
+                
+        auto_up = getattr(instance, "auto_upgrade_walls", True) if instance else bool(data.get("auto_upgrade_walls", True))
+        pref = getattr(instance, "wall_resource_preference", "ANY") if instance else str(data.get("wall_resource_preference", "ANY"))
+        res = getattr(instance, "min_resource_reserve", 500000) if instance else int(data.get("min_resource_reserve", 500000))
+        trig = getattr(instance, "min_wall_trigger_loot", 6000000) if instance else int(data.get("min_wall_trigger_loot", 6000000))
+
+        # Persist to disk
+        try:
+            cfg_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(cfg_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "auto_upgrade_walls": auto_up,
+                    "wall_resource_preference": pref,
+                    "min_resource_reserve": res,
+                    "min_wall_trigger_loot": trig
+                }, f, indent=2)
+        except:
+            pass
+            
+        # Log to live instance terminal
+        status_str = "ENABLED" if auto_up else "DISABLED"
+        log_instance_message(id, f"⚙️ Auto-Wall Config Saved: [{status_str}] Min Trigger = {trig:,} | Reserve = {res:,} | Pref = {pref}")
+            
         return jsonify({"success": True})
         
+    # GET request
+    if cfg_file.exists():
+        try:
+            with open(cfg_file, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                if instance:
+                    instance.auto_upgrade_walls = saved.get("auto_upgrade_walls", True)
+                    instance.wall_resource_preference = saved.get("wall_resource_preference", "ANY")
+                    instance.min_resource_reserve = saved.get("min_resource_reserve", 500000)
+                    instance.min_wall_trigger_loot = saved.get("min_wall_trigger_loot", 6000000)
+                return jsonify(saved)
+        except:
+            pass
+            
     if not instance:
         return jsonify({
             "auto_upgrade_walls": True,
             "wall_resource_preference": "ANY",
-            "min_resource_reserve": 500000
+            "min_resource_reserve": 500000,
+            "min_wall_trigger_loot": 6000000
         })
     return jsonify({
         "auto_upgrade_walls": getattr(instance, "auto_upgrade_walls", True),
         "wall_resource_preference": getattr(instance, "wall_resource_preference", "ANY"),
-        "min_resource_reserve": getattr(instance, "min_resource_reserve", 500000)
+        "min_resource_reserve": getattr(instance, "min_resource_reserve", 500000),
+        "min_wall_trigger_loot": getattr(instance, "min_wall_trigger_loot", 6000000)
     })
 
 def start_server(pipe, server_port=5000, id=None, debug=False):

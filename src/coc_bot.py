@@ -137,7 +137,7 @@ class CoC_Bot:
                         from upgrader import WallUpgrader
                         WallUpgrader.upgrade_walls()
                     except Exception as e:
-                        if configs.DEBUG: print("Wall upgrade error:", e)
+                        print(f"❌ Wall upgrade error: {e}")
                 
                 update_status(time.time())
                 

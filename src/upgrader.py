@@ -164,13 +164,29 @@ class WallUpgrader:
 
     @classmethod
     def get_wall_config(cls):
-        import requests
+        import requests, json
+        from pathlib import Path
         from utils import WEB_APP_URL, TEMP_CACHE, INSTANCE_ID
         
         auto_upgrade = getattr(configs, "AUTO_UPGRADE_WALLS", True)
         preference = getattr(configs, "WALL_RESOURCE_PREFERENCE", "ANY")
         reserve = getattr(configs, "MIN_RESOURCE_RESERVE", 500000)
+        min_trigger = getattr(configs, "MIN_WALL_TRIGGER_LOOT", 6000000)
         
+        # 1. Check local persistent disk cache first
+        cfg_file = Path("debug") / f"{INSTANCE_ID}_wall_config.json"
+        if cfg_file.exists():
+            try:
+                with open(cfg_file, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                    auto_upgrade = saved.get("auto_upgrade_walls", auto_upgrade)
+                    preference = saved.get("wall_resource_preference", preference)
+                    reserve = saved.get("min_resource_reserve", reserve)
+                    min_trigger = saved.get("min_wall_trigger_loot", min_trigger)
+            except:
+                pass
+                
+        # 2. Check live GUI server HTTP endpoint
         url = WEB_APP_URL
         if not url and TEMP_CACHE.get("gui_port"):
             url = f"http://127.0.0.1:{TEMP_CACHE['gui_port']}"
@@ -183,10 +199,11 @@ class WallUpgrader:
                     auto_upgrade = data.get("auto_upgrade_walls", auto_upgrade)
                     preference = data.get("wall_resource_preference", preference)
                     reserve = data.get("min_resource_reserve", reserve)
+                    min_trigger = data.get("min_wall_trigger_loot", min_trigger)
             except:
                 pass
                 
-        return auto_upgrade, str(preference).upper(), int(reserve)
+        return auto_upgrade, str(preference).upper(), int(reserve), int(min_trigger)
 
     @classmethod
     def find_row_upgrade_buttons(cls, frame):
@@ -224,39 +241,49 @@ class WallUpgrader:
     def upgrade_walls(cls):
         """
         Main execution flow:
-        1. Reads Village Gold & Elixir.
-        2. Scans Builder Suggestion Menu for walls.
-        3. Taps Wall suggestion to select wall on map.
-        4. Taps 'Select Row' to select entire connected row.
-        5. Taps Gold/Elixir upgrade button (dynamically located).
-        6. Confirms with 'Okay' modal.
-        7. Verifies resource deduction.
+        1. Reads Village Gold & Elixir (<10ms).
+        2. If below Min Trigger Loot (e.g. 6M), immediately skips (0ms delay).
+        3. Scans Builder Suggestion Menu for walls.
+        4. Taps Wall suggestion to select wall on map.
+        5. Taps 'Select Row' to select entire connected row.
+        6. Taps Gold/Elixir upgrade button (dynamically located).
+        7. Confirms with 'Okay' modal.
+        8. Dismisses any gem popups.
+        9. Verifies resource deduction.
         """
         # Fetch up-to-date user config from GUI server / configs
-        auto_upgrade, preference, reserve = cls.get_wall_config()
+        auto_upgrade, preference, reserve, min_trigger = cls.get_wall_config()
         
         if not auto_upgrade:
             return False
             
         if not running(): return False
         
-        # 1. Pre-flight Loot Check
+        # 1. Fast Pre-flight Loot Check (<10ms HUD scan)
         gold, elixir = cls.get_village_resources()
         
-        print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Reserve: {reserve:,} | Pref: {preference})")
+        # Check against Safe Reserve & Trigger Threshold
+        can_afford_gold = (gold >= reserve + 500000)
+        can_afford_elixir = (elixir >= reserve + 500000)
         
-        can_afford_gold = (gold > reserve + 500000)
-        can_afford_elixir = (elixir > reserve + 500000)
+        can_trigger_gold = (gold >= min_trigger)
+        can_trigger_elixir = (elixir >= min_trigger)
         
-        if preference == "ELIXIR" and not can_afford_elixir:
-            print(f"Elixir balance ({elixir:,}) below reserve + 500k. Skipping wall upgrades.")
+        should_trigger = False
+        if preference == "GOLD":
+            should_trigger = can_trigger_gold
+        elif preference == "ELIXIR":
+            should_trigger = can_trigger_elixir
+        elif preference == "ANY":
+            should_trigger = (can_trigger_gold or can_trigger_elixir)
+            
+        if not should_trigger:
+            print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Trigger: {min_trigger:,} | Reserve: {reserve:,} | Pref: {preference})")
+            print(f"Below trigger threshold ({min_trigger:,}). Fast skipping wall check (0s delay).")
             return False
-        elif preference == "GOLD" and not can_afford_gold:
-            print(f"Gold balance ({gold:,}) below reserve + 500k. Skipping wall upgrades.")
-            return False
-        elif preference == "ANY" and not (can_afford_gold or can_afford_elixir):
-            print("Insufficient loot above safe reserve. Skipping wall upgrades.")
-            return False
+            
+        print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Trigger: {min_trigger:,} | Reserve: {reserve:,} | Pref: {preference})")
+        print(f"🚀 Loot threshold reached! Opening Builder Menu to check walls...")
 
         # 2. Locate Wall in Builder Menu
         print("Opening Builder Menu to check wall suggestions...")
