@@ -71,18 +71,30 @@ class CoC_Bot:
         return True
     
     # ============================================================
-    # ⏱️ Task Execution
+    # ⏱️ Task Execution Loop (With Instant Pause & Resume)
     # ============================================================
     
     def run(self):
         # 1. Initial State-Aware Check (Resumes cleanly without force-closing app)
         self.ensure_home_village()
+        was_paused = False
         
         while True:
             try:
+                # Instant Pause Check (Holds ADB connection open, idles quietly without sending touches)
                 if not running():
-                    time.sleep(1)
+                    if not was_paused:
+                        print("⏸️ Bot paused. Sitting idle with ADB connection active...")
+                        update_status("Paused")
+                        was_paused = True
+                    time.sleep(0.5)
                     continue
+                
+                # Resumed from Pause: Scan game state & recover to Home Village instantly
+                if was_paused:
+                    print("▶️ Resumed! Inspecting screen state...")
+                    self.ensure_home_village()
+                    was_paused = False
                 
                 # Check if in home base. If not, recover to home base.
                 try:

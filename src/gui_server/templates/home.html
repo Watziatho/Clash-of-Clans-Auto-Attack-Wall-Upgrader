@@ -1,487 +1,795 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoC Bot - Multi-Base Manager</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+        :root {
+            --bg-base: #0b0f17;
+            --bg-card: #131b26;
+            --bg-card-hover: #192433;
+            --bg-terminal: #090d14;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-focus: rgba(255, 255, 255, 0.16);
+            --accent-gold: #f59e0b;
+            --accent-gold-glow: rgba(245, 158, 11, 0.25);
+            --accent-emerald: #10b981;
+            --accent-emerald-glow: rgba(16, 185, 129, 0.25);
+            --accent-crimson: #ef4444;
+            --accent-crimson-glow: rgba(239, 68, 68, 0.25);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
+
         body {
-            max-width: 540px;
+            max-width: 580px;
             margin: 0 auto;
-            padding: 15px;
-            font-family: 'Rubik', sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            padding: 14px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* 👑 Header Bar */
         .header-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(125, 125, 125, 0.2);
+            padding: 10px 14px;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(19, 27, 38, 0.8));
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            backdrop-filter: blur(10px);
         }
+
         .header-brand {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
+
         .header-brand img {
-            width: 42px;
-            height: 42px;
-            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+            border: 2px solid rgba(245, 158, 11, 0.4);
         }
+
+        .header-title-box {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
         .header-title {
-            font-size: 1.3em;
-            font-weight: 700;
-            margin: 0;
-            text-align: left;
+            font-size: 1.15em;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+
         .header-subtitle {
-            font-size: 0.75em;
-            opacity: 0.65;
-            margin: 0;
-            text-align: left;
+            font-size: 0.72em;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
+
         .global-buttons {
             display: flex;
             gap: 6px;
         }
-        .btn-sm-global {
-            padding: 6px 12px;
-            font-size: 0.85em;
+
+        .btn-global {
+            padding: 7px 11px;
+            font-size: 0.78em;
             font-weight: 700;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: transform 0.15s ease, opacity 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
-        .btn-sm-global:hover {
-            opacity: 0.9;
-            transform: scale(1.03);
+
+        .btn-global:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
         }
+
+        .btn-global:active {
+            transform: translateY(1px);
+        }
+
         .btn-start-all {
-            background-color: #28a745;
-            color: #fff;
-        }
-        .btn-stop-all {
-            background-color: #dc3545;
+            background: linear-gradient(135deg, #10b981, #059669);
             color: #fff;
         }
 
-        /* Tabs Navigation */
+        .btn-pause-all {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fff;
+        }
+
+        .btn-stop-all {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+
+        /* 🗂️ Tabs Navigation */
         .tabs-container {
             display: flex;
             gap: 6px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             overflow-x: auto;
-            padding-bottom: 2px;
+            padding: 2px;
         }
+
+        .tabs-container::-webkit-scrollbar {
+            display: none;
+        }
+
         .tab-btn {
             flex: 1;
-            padding: 9px 8px;
-            background: rgba(125, 125, 125, 0.12);
-            border: 1px solid rgba(125, 125, 125, 0.2);
-            border-radius: 8px;
+            padding: 8px 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
             cursor: pointer;
-            font-family: 'Rubik', sans-serif;
-            font-size: 0.88em;
+            font-family: inherit;
+            font-size: 0.82em;
             font-weight: 600;
-            color: var(--text);
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            transition: background 0.15s ease, border-color 0.15s ease;
+            transition: all 0.15s ease;
             white-space: nowrap;
         }
+
         .tab-btn:hover {
-            background: rgba(125, 125, 125, 0.22);
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            border-color: var(--border-focus);
         }
+
         .tab-btn.active {
-            background: #f1c40f;
-            color: #111;
-            border-color: #d4ac0d;
-            box-shadow: 0 2px 8px rgba(241, 196, 15, 0.35);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.06));
+            border-color: var(--accent-gold);
+            color: #fff;
+            box-shadow: 0 0 12px var(--accent-gold-glow);
         }
+
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             display: inline-block;
-        }
-        .dot-running {
-            background-color: #2ecc71;
-            box-shadow: 0 0 6px #2ecc71;
-        }
-        .dot-idle {
-            background-color: #95a5a6;
+            background: #475569;
         }
 
-        /* Active Base Control Card */
-        .control-card {
-            background: rgba(125, 125, 125, 0.08);
-            border: 1px solid rgba(125, 125, 125, 0.2);
-            border-radius: 10px;
-            padding: 10px 14px;
+        .status-dot.running {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse-green 2s infinite;
+        }
+
+        .status-dot.paused {
+            background: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+            animation: pulse-amber 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        @keyframes pulse-amber {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        /* 🎛️ Control Deck Card */
+        .control-deck {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 10px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
         }
-        .card-left {
-            text-align: left;
-        }
-        .card-instance-name {
-            font-size: 1.15em;
-            font-weight: 700;
-            margin-bottom: 2px;
-        }
-        .card-port-tag {
-            font-size: 0.78em;
-            opacity: 0.7;
-        }
-        .card-actions {
+
+        .instance-meta {
             display: flex;
-            gap: 8px;
-            align-items: center;
+            flex-direction: column;
+            gap: 4px;
         }
-        .btn-toggle-run {
-            padding: 7px 16px;
-            font-size: 0.9em;
+
+        .instance-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .instance-name {
+            font-size: 1.15em;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .status-pill {
+            font-size: 0.68em;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 20px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .status-pill.idle {
+            background: rgba(100, 116, 139, 0.2);
+            color: #94a3b8;
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .status-pill.running {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .status-pill.paused {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .instance-details {
+            font-size: 0.74em;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .instance-details span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .deck-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-deck {
+            padding: 9px 15px;
+            font-size: 0.85em;
             font-weight: 700;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             cursor: pointer;
-            min-width: 85px;
-            transition: transform 0.15s ease;
-        }
-        .btn-toggle-run:hover {
-            transform: scale(1.03);
-        }
-        .btn-state-start {
-            background-color: #28a745;
-            color: #fff;
-        }
-        .btn-state-stop {
-            background-color: #dc3545;
-            color: #fff;
-        }
-        .btn-icon-action {
-            background: rgba(125, 125, 125, 0.2);
-            color: var(--text);
-            border: none;
-            border-radius: 6px;
-            padding: 8px 10px;
-            font-size: 0.85em;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
+            display: flex;
             align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-deck:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+
+        .btn-deck:active {
+            transform: translateY(1px);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            min-width: 95px;
             justify-content: center;
         }
-        .btn-icon-action:hover {
-            background: rgba(125, 125, 125, 0.35);
+
+        .btn-pause {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fff;
         }
 
-        /* Terminal Console Box */
-        .terminal-wrapper {
-            background: #121417;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 10px;
-            overflow: hidden;
-            text-align: left;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        .btn-resume {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            animation: pulse-green 2s infinite;
         }
-        .terminal-header {
-            background: #1c2024;
-            padding: 6px 12px;
-            font-size: 0.78em;
-            font-weight: 600;
-            color: #8b949e;
+
+        .btn-stop {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+
+        .btn-icon-action {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .btn-icon-action:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: var(--border-focus);
+        }
+
+        /* 💻 Console Terminal Card */
+        .console-card {
+            background: var(--bg-terminal);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        .console-header {
+            background: #111722;
+            padding: 8px 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid var(--border-subtle);
         }
-        .terminal-title {
+
+        .console-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 5px;
+        }
+
+        .terminal-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ef4444; }
+        .terminal-dot.yellow { background: #f59e0b; }
+        .terminal-dot.green { background: #10b981; }
+
+        .console-title {
+            font-size: 0.78em;
+            font-weight: 600;
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
             gap: 6px;
         }
-        .btn-copy-log {
-            background: rgba(255, 255, 255, 0.1);
-            color: #c9d1d9;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-            padding: 3px 8px;
-            font-size: 0.85em;
-            font-family: 'Rubik', sans-serif;
-            cursor: pointer;
-            transition: background 0.15s ease, color 0.15s ease;
+
+        .console-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .btn-copy-log:hover {
-            background: rgba(255, 255, 255, 0.22);
+
+        .btn-console-tool {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.72em;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-console-tool:hover {
+            background: rgba(255, 255, 255, 0.12);
             color: #fff;
         }
-        .terminal-body {
-            height: 380px;
+
+        .terminal-output {
+            background: var(--bg-terminal);
+            padding: 12px 14px;
+            height: 250px;
             overflow-y: auto;
-            padding: 10px 12px;
-            font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
-            font-size: 0.78em;
-            line-height: 1.45;
-            color: #c9d1d9;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.76em;
+            line-height: 1.55;
+            color: #cbd5e1;
             white-space: pre-wrap;
-            word-break: break-all;
-            user-select: text;
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            cursor: text;
+            word-break: break-word;
         }
-        .terminal-body::-webkit-scrollbar {
+
+        .terminal-output::-webkit-scrollbar {
             width: 6px;
         }
-        .terminal-body::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
+
+        .terminal-output::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 3px;
+        }
+
+        .terminal-output::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Log syntax styling */
+        .log-ts { color: #64748b; }
+        .log-info { color: #34d399; font-weight: 600; }
+        .log-warn { color: #fbbf24; font-weight: 600; }
+        .log-err { color: #f87171; font-weight: 700; }
+        .log-pause { color: #f59e0b; font-weight: 700; }
+        .log-resume { color: #10b981; font-weight: 700; }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e293b;
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            font-weight: 600;
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
-    <!-- Top Header & Global Actions -->
+
+    <!-- 👑 Header -->
     <div class="header-bar">
         <div class="header-brand">
-            <img src="{{ url_for('static', filename='coc_bot_logo.png') }}" alt="CoC Bot">
-            <div>
+            <img src="{{ url_for('static', filename='barbarian.png') }}" alt="CoC Bot">
+            <div class="header-title-box">
                 <div class="header-title">CoC Bot Manager</div>
-                <div class="header-subtitle">Multi-Base Attack Controller</div>
+                <div class="header-subtitle">Multi-Base Automation Controller</div>
             </div>
         </div>
         <div class="global-buttons">
-            <button class="btn-sm-global btn-start-all" onclick="startAll()"><i class="fas fa-play"></i> Start All</button>
-            <button class="btn-sm-global btn-stop-all" onclick="stopAll()"><i class="fas fa-stop"></i> Stop All</button>
+            <button class="btn-global btn-start-all" onclick="globalAction('start')" title="Start all configured instances">
+                <i class="fa-solid fa-play"></i> Start All
+            </button>
+            <button class="btn-global btn-pause-all" onclick="globalAction('pause')" title="Pause all active instances">
+                <i class="fa-solid fa-pause"></i> Pause All
+            </button>
+            <button class="btn-global btn-stop-all" onclick="globalAction('stop')" title="Stop all running instances">
+                <i class="fa-solid fa-stop"></i> Stop All
+            </button>
         </div>
     </div>
 
-    <!-- Instance Tabs -->
+    <!-- 🗂️ Instance Tabs -->
     <div class="tabs-container">
         {% for inst in instances %}
-        <button class="tab-btn {{ 'active' if loop.first else '' }}" id="tab_{{ inst.id }}" onclick="switchTab('{{ inst.id }}')">
-            <span class="status-dot {{ 'dot-running' if inst.running else 'dot-idle' }}" id="dot_{{ inst.id }}"></span>
+        <button class="tab-btn {% if loop.first %}active{% endif %}" 
+                id="tab_{{ inst.id }}" 
+                onclick="selectTab('{{ inst.id }}')">
+            <span class="status-dot {% if inst.running %}{% if inst.paused %}paused{% else %}running{% endif %}{% endif %}" id="dot_{{ inst.id }}"></span>
             {{ inst.id }}
         </button>
         {% endfor %}
     </div>
 
-    <!-- Active Base Controls -->
+    <!-- 🎛️ Control Deck for each Instance -->
     {% for inst in instances %}
-    <div class="control-card-wrapper" id="panel_{{ inst.id }}" style="{{ '' if loop.first else 'display:none;' }}">
-        <div class="control-card">
-            <div class="card-left">
-                <div class="card-instance-name">
-                    {{ inst.id }}
-                    <span id="badge_{{ inst.id }}" style="font-size:0.7em; padding: 2px 7px; border-radius: 6px; font-weight:700; background:{{ '#28a745' if inst.running else '#6c757d' }}; color:white;">
-                        {{ 'RUNNING' if inst.running else 'IDLE' }}
+    <div class="instance-view" id="view_{{ inst.id }}" style="{% if not loop.first %}display:none;{% endif %}">
+        
+        <div class="control-deck">
+            <div class="instance-meta">
+                <div class="instance-title-row">
+                    <span class="instance-name">{{ inst.id }}</span>
+                    <span class="status-pill {% if not inst.running %}idle{% elif inst.paused %}paused{% else %}running{% endif %}" id="pill_{{ inst.id }}">
+                        {% if not inst.running %}Idle{% elif inst.paused %}Paused{% else %}{{ inst.status }}{% endif %}
                     </span>
                 </div>
-                <div class="card-port-tag"><i class="fas fa-network-wired"></i> ADB Port: {{ inst.port }}</div>
+                <div class="instance-details">
+                    <span><i class="fa-solid fa-network-wired"></i> ADB Port: {{ inst.port }}</span>
+                </div>
             </div>
-            <div class="card-actions">
-                <button 
-                    id="btn_run_{{ inst.id }}" 
-                    class="btn-toggle-run {{ 'btn-state-stop' if inst.running else 'btn-state-start' }}" 
-                    onclick="toggleInstance('{{ inst.id }}')">
-                    {{ 'STOP' if inst.running else 'START' }}
-                </button>
-                <a href="/instances/{{ inst.id }}" class="btn-icon-action" title="Settings & Timer">
-                    <i class="fas fa-cog"></i>
+
+            <div class="deck-actions" id="actions_{{ inst.id }}">
+                {% if not inst.running %}
+                    <button class="btn-deck btn-start" onclick="instanceAction('{{ inst.id }}', 'start')">
+                        <i class="fa-solid fa-play"></i> START
+                    </button>
+                {% elif inst.paused %}
+                    <button class="btn-deck btn-resume" onclick="instanceAction('{{ inst.id }}', 'resume')">
+                        <i class="fa-solid fa-play"></i> RESUME
+                    </button>
+                    <button class="btn-deck btn-stop" onclick="instanceAction('{{ inst.id }}', 'stop')">
+                        <i class="fa-solid fa-stop"></i> STOP
+                    </button>
+                {% else %}
+                    <button class="btn-deck btn-pause" onclick="instanceAction('{{ inst.id }}', 'pause')">
+                        <i class="fa-solid fa-pause"></i> PAUSE
+                    </button>
+                    <button class="btn-deck btn-stop" onclick="instanceAction('{{ inst.id }}', 'stop')">
+                        <i class="fa-solid fa-stop"></i> STOP
+                    </button>
+                {% endif %}
+
+                <a href="/instances/{{ inst.id }}" class="btn-icon-action" title="Base Settings">
+                    <i class="fa-solid fa-gear"></i>
                 </a>
-                <button class="btn-icon-action" onclick="clearLogs('{{ inst.id }}')" title="Clear Logs">
-                    <i class="fas fa-trash"></i>
-                </button>
             </div>
         </div>
+
+        <!-- 💻 Console Output Deck -->
+        <div class="console-card">
+            <div class="console-header">
+                <div class="console-left">
+                    <div class="terminal-dots">
+                        <div class="terminal-dot red"></div>
+                        <div class="terminal-dot yellow"></div>
+                        <div class="terminal-dot green"></div>
+                    </div>
+                    <div class="console-title">
+                        <i class="fa-solid fa-terminal"></i>
+                        <span>{{ inst.id }} - Live Output</span>
+                    </div>
+                </div>
+                <div class="console-actions">
+                    <button class="btn-console-tool" onclick="copyLogs('{{ inst.id }}')">
+                        <i class="fa-regular fa-copy"></i> Copy
+                    </button>
+                    <button class="btn-console-tool" onclick="clearLogs('{{ inst.id }}')">
+                        <i class="fa-regular fa-trash-can"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="terminal-output" id="logs_{{ inst.id }}">Connecting to live logger...</div>
+        </div>
+
     </div>
     {% endfor %}
 
-    <!-- In-App Live Terminal Console -->
-    <div class="terminal-wrapper">
-        <div class="terminal-header">
-            <div class="terminal-title">
-                <i class="fas fa-terminal"></i> <span id="current_log_title">main</span> - Live Console Output
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="btn-copy-log" id="btn_copy_log" onclick="copyActiveLogs()" title="Copy entire log to clipboard">
-                    <i class="fas fa-copy"></i> Copy Log
-                </button>
-            </div>
-        </div>
-        <div class="terminal-body" id="log_terminal">Loading logs...</div>
-    </div>
+    <!-- 🍞 Toast Feedback -->
+    <div id="toast" class="toast">Action completed</div>
 
     <script>
-        const allInstances = {{ instances|tojson }};
-        let currentTab = allInstances.length > 0 ? allInstances[0].id : "main";
-        const instanceStates = {};
+        let currentTab = "{{ instances[0].id if instances else 'main' }}";
+        const allInstanceIds = [{% for inst in instances %}"{{ inst.id }}",{% endfor %}];
+        let instanceStates = {};
 
-        allInstances.forEach(inst => {
-            instanceStates[inst.id] = { running: inst.running, port: inst.port };
-        });
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
 
-        const logCaches = {};
-
-        function switchTab(id) {
+        function selectTab(id) {
             currentTab = id;
-            allInstances.forEach(inst => {
-                const tab = document.getElementById(`tab_${inst.id}`);
-                const panel = document.getElementById(`panel_${inst.id}`);
-                if (inst.id === id) {
-                    tab.classList.add('active');
-                    panel.style.display = 'block';
-                } else {
-                    tab.classList.remove('active');
-                    panel.style.display = 'none';
-                }
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.instance-view').forEach(view => view.style.display = 'none');
+
+            const activeTab = document.getElementById('tab_' + id);
+            const activeView = document.getElementById('view_' + id);
+            if (activeTab) activeTab.classList.add('active');
+            if (activeView) activeView.style.display = 'block';
+            fetchLogsForInstance(id);
+        }
+
+        function instanceAction(id, action) {
+            fetch('/instance_action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id, action: action})
+            }).then(r => r.json()).then(res => {
+                showToast(`Instance '${id}': ${action.toUpperCase()}`);
+                refreshAllStatus();
             });
-            document.getElementById('current_log_title').textContent = id;
-            const terminal = document.getElementById('log_terminal');
-            if (logCaches[id]) {
-                terminal.textContent = logCaches[id];
-                terminal.scrollTop = terminal.scrollHeight;
-            } else {
-                terminal.textContent = "Loading logs for " + id + "...";
-            }
-            fetchLogs();
         }
 
-        async function toggleInstance(id) {
-            const btn = document.getElementById(`btn_run_${id}`);
-            const isRunning = btn.classList.contains('btn-state-stop');
-            const action = isRunning ? 'stop' : 'start';
-
-            btn.disabled = true;
-            try {
-                const res = await fetch('/instance_action', {
+        function globalAction(action) {
+            let promises = allInstanceIds.map(id => {
+                return fetch('/instance_action', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: action, id: id })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: id, action: action})
                 });
-                const result = await res.json();
-                if (result === 1) {
-                    const running = (action === 'start');
-                    instanceStates[id].running = running;
-                    updateInstanceUI(id, running);
-                    fetchLogs();
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                btn.disabled = false;
+            });
+            Promise.all(promises).then(() => {
+                showToast(`All Instances: ${action.toUpperCase()}`);
+                refreshAllStatus();
+            });
+        }
+
+        function copyLogs(id) {
+            const logBox = document.getElementById('logs_' + id);
+            if (logBox) {
+                navigator.clipboard.writeText(logBox.innerText).then(() => {
+                    showToast("Logs copied to clipboard!");
+                });
             }
         }
 
-        function updateInstanceUI(id, isRunning) {
-            const btn = document.getElementById(`btn_run_${id}`);
-            const badge = document.getElementById(`badge_${id}`);
-            const dot = document.getElementById(`dot_${id}`);
-
-            if (btn) {
-                btn.className = `btn-toggle-run ${isRunning ? 'btn-state-stop' : 'btn-state-start'}`;
-                btn.textContent = isRunning ? 'STOP' : 'START';
-            }
-            if (badge) {
-                badge.style.background = isRunning ? '#28a745' : '#6c757d';
-                badge.textContent = isRunning ? 'RUNNING' : 'IDLE';
-            }
-            if (dot) {
-                dot.className = `status-dot ${isRunning ? 'dot-running' : 'dot-idle'}`;
-            }
+        function clearLogs(id) {
+            fetch(`/instances/${id}/logs/clear`, {method: 'POST'}).then(() => {
+                const logBox = document.getElementById('logs_' + id);
+                if (logBox) logBox.innerText = "";
+                showToast("Console output cleared");
+            });
         }
 
-        async function startAll() {
-            for (const inst of allInstances) {
-                if (!instanceStates[inst.id].running) {
-                    await toggleInstance(inst.id);
-                }
+        function formatLogLine(line) {
+            let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Highlight timestamps
+            escaped = escaped.replace(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/, '<span class="log-ts">$1</span>');
+            // Highlight log levels
+            escaped = escaped.replace(/\|\s*INFO\s*\|/g, '| <span class="log-info">INFO</span> |');
+            escaped = escaped.replace(/\|\s*WARNING\s*\|/g, '| <span class="log-warn">WARN</span> |');
+            escaped = escaped.replace(/\|\s*ERROR\s*\|/g, '| <span class="log-err">ERROR</span> |');
+            // Highlight pause / resume tags
+            if (escaped.includes('⏸️') || escaped.includes('paused')) {
+                escaped = `<span class="log-pause">${escaped}</span>`;
+            } else if (escaped.includes('▶️') || escaped.includes('Resumed')) {
+                escaped = `<span class="log-resume">${escaped}</span>`;
             }
+            return escaped;
         }
 
-        async function stopAll() {
-            for (const inst of allInstances) {
-                if (instanceStates[inst.id].running) {
-                    await toggleInstance(inst.id);
-                }
-            }
-        }
-
-        async function clearLogs(id) {
-            try {
-                await fetch(`/instances/${id}/logs/clear`, { method: 'POST' });
-                logCaches[id] = "";
-                fetchLogs();
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        async function copyActiveLogs() {
-            const terminal = document.getElementById('log_terminal');
-            const text = terminal.textContent || "";
-            const copyBtn = document.getElementById('btn_copy_log');
-            try {
-                await navigator.clipboard.writeText(text);
-                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                setTimeout(() => {
-                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Log';
-                }, 1500);
-            } catch (err) {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                setTimeout(() => {
-                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Log';
-                }, 1500);
-            }
-        }
-
-        async function fetchLogs() {
-            try {
-                const res = await fetch(`/instances/${currentTab}/logs`);
-                const data = await res.json();
-                const terminal = document.getElementById('log_terminal');
-                
-                if (data.logs && data.logs.length > 0) {
-                    const fullText = data.logs.join("");
-                    // Only auto-scroll down if user is already near the bottom (within 40px)
-                    const isNearBottom = (terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight) < 40;
-                    
-                    logCaches[currentTab] = fullText;
-                    if (terminal.textContent !== fullText) {
-                        terminal.textContent = fullText;
-                        if (isNearBottom) {
-                            terminal.scrollTop = terminal.scrollHeight;
+        function fetchLogsForInstance(id) {
+            fetch(`/instances/${id}/logs`)
+                .then(r => r.json())
+                .then(data => {
+                    const logBox = document.getElementById('logs_' + id);
+                    if (logBox && data.logs) {
+                        const isScrolledToBottom = logBox.scrollHeight - logBox.clientHeight <= logBox.scrollTop + 40;
+                        const formatted = data.logs.map(formatLogLine).join('');
+                        logBox.innerHTML = formatted;
+                        if (isScrolledToBottom) {
+                            logBox.scrollTop = logBox.scrollHeight;
                         }
                     }
-                } else {
-                    terminal.textContent = "No logs yet. Click START to begin.";
-                }
-            } catch (err) {
-                // Ignore fetch errors during navigation
+                }).catch(() => {});
+        }
+
+        function refreshAllStatus() {
+            allInstanceIds.forEach(id => {
+                fetch(`/instances/${id}/running`)
+                    .then(r => {
+                        if (r.status === 404) return { running: false, paused: false };
+                        return r.json();
+                    })
+                    .then(state => {
+                        updateInstanceUI(id, state.running, state.paused);
+                    }).catch(() => {
+                        updateInstanceUI(id, false, false);
+                    });
+            });
+        }
+
+        function updateInstanceUI(id, isRunning, isPaused) {
+            const dot = document.getElementById('dot_' + id);
+            const pill = document.getElementById('pill_' + id);
+            const actions = document.getElementById('actions_' + id);
+
+            if (!actions || !pill || !dot) return;
+
+            dot.className = "status-dot";
+            pill.className = "status-pill";
+
+            if (!isRunning && !isPaused) {
+                // Completely stopped / idle
+                dot.classList.remove('running', 'paused');
+                pill.classList.add('idle');
+                pill.innerText = "Idle";
+                actions.innerHTML = `
+                    <button class="btn-deck btn-start" onclick="instanceAction('${id}', 'start')">
+                        <i class="fa-solid fa-play"></i> START
+                    </button>
+                    <a href="/instances/${id}" class="btn-icon-action" title="Base Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </a>
+                `;
+            } else if (isPaused) {
+                // Paused state
+                dot.classList.add('paused');
+                dot.classList.remove('running');
+                pill.classList.add('paused');
+                pill.innerText = "Paused";
+                actions.innerHTML = `
+                    <button class="btn-deck btn-resume" onclick="instanceAction('${id}', 'resume')">
+                        <i class="fa-solid fa-play"></i> RESUME
+                    </button>
+                    <button class="btn-deck btn-stop" onclick="instanceAction('${id}', 'stop')">
+                        <i class="fa-solid fa-stop"></i> STOP
+                    </button>
+                    <a href="/instances/${id}" class="btn-icon-action" title="Base Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </a>
+                `;
+            } else {
+                // Running active state
+                dot.classList.add('running');
+                dot.classList.remove('paused');
+                pill.classList.add('running');
+                pill.innerText = "Active";
+                actions.innerHTML = `
+                    <button class="btn-deck btn-pause" onclick="instanceAction('${id}', 'pause')">
+                        <i class="fa-solid fa-pause"></i> PAUSE
+                    </button>
+                    <button class="btn-deck btn-stop" onclick="instanceAction('${id}', 'stop')">
+                        <i class="fa-solid fa-stop"></i> STOP
+                    </button>
+                    <a href="/instances/${id}" class="btn-icon-action" title="Base Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </a>
+                `;
             }
         }
 
-        // Poll logs every 900ms
-        setInterval(fetchLogs, 900);
-        fetchLogs();
+        // Live polling loops
+        setInterval(() => {
+            if (currentTab) fetchLogsForInstance(currentTab);
+        }, 1000);
+
+        setInterval(refreshAllStatus, 2000);
+
+        // Initial fetch
+        if (currentTab) {
+            fetchLogsForInstance(currentTab);
+            refreshAllStatus();
+        }
     </script>
 </body>
 </html>

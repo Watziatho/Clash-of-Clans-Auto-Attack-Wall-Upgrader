@@ -53,6 +53,7 @@ class Instance:
         self.id = id if id is not None else ""
         self.run_status = "Running"
         self.end_time = 0
+        self.is_paused = False
         task_settings = {
             "home_attacks": not ATTACK_HOME_BASE,
         }
@@ -65,12 +66,22 @@ def home():
     instance_info = []
     for inst_id in INSTANCE_IDS:
         is_running = inst_id in instances
+        is_paused = instances[inst_id].is_paused if is_running else False
         adb_p = get_instance_port(inst_id)
+        
+        if not is_running:
+            display_status = "Idle"
+        elif is_paused:
+            display_status = "Paused"
+        else:
+            display_status = instances[inst_id].run_status if instances[inst_id].run_status else "Running"
+            
         instance_info.append({
             "id": inst_id,
             "running": is_running,
+            "paused": is_paused,
             "port": adb_p,
-            "status": instances[inst_id].run_status if is_running else "Stopped"
+            "status": display_status
         })
     return render_template(
         "home.html",
@@ -104,6 +115,7 @@ def handle_instance_start_stop():
     data = request.json
     action = data.get("action", "")
     id = data.get("id", "")
+    
     if action == "start":
         if id not in INSTANCE_IDS:
             return jsonify(0)
@@ -111,13 +123,32 @@ def handle_instance_start_stop():
             instances[id] = Instance(id)
             if bot_pipe:
                 bot_pipe.send({"action": "start", "id": id})
+        else:
+            instances[id].is_paused = False
+            instances[id].run_status = "Running"
         return jsonify(1)
+        
+    elif action == "pause":
+        if id in instances:
+            instances[id].is_paused = True
+            instances[id].run_status = "Paused"
+            return jsonify(1)
+        return jsonify(0)
+        
+    elif action == "resume":
+        if id in instances:
+            instances[id].is_paused = False
+            instances[id].run_status = "Running"
+            return jsonify(1)
+        return jsonify(0)
+        
     elif action == "stop":
         instance = instances.pop(id, None)
         if instance:
             if bot_pipe:
                 bot_pipe.send({"action": "stop", "id": id})
         return jsonify(1)
+        
     return jsonify(0)
 
 @app.route("/current_time", methods=["GET"])
@@ -137,7 +168,9 @@ def handle_end_time(id):
 def handle_running(id):
     instance = instances.get(id)
     if not instance: abort(404)
-    return {"running": instance.end_time == 0 or instance.end_time < time.time()}
+    time_active = (instance.end_time == 0 or instance.end_time < time.time())
+    is_running = time_active and not getattr(instance, "is_paused", False)
+    return {"running": is_running, "paused": getattr(instance, "is_paused", False)}
 
 @app.route("/instances/<id>/status", methods=["GET", "POST"])
 def handle_status(id):
@@ -146,7 +179,7 @@ def handle_status(id):
     if request.method == "POST":
         data = request.json
         instance.run_status = data.get("status", "")
-    return {"status": instance.run_status}
+    return {"status": instance.run_status, "paused": getattr(instance, "is_paused", False)}
 
 @app.route("/instances/<id>/exclude", methods=["GET", "POST"])
 def handle_exclude(id):
