@@ -70,8 +70,10 @@ class CoC_Bot:
         except Exception as e:
             if configs.DEBUG: print("End screen check error:", e)
 
-        # 5. Dismiss in-game popups/news
+        # 5. Dismiss in-game popups/news and deselect any selected buildings/walls
         try:
+            Input_Handler.click(0.99, 0.99)
+            time.sleep(0.2)
             Input_Handler.click_exit(1, 0.1)
             time.sleep(0.5)
             if get_home_builders(0.5, return_amount=False, raise_exception=False):

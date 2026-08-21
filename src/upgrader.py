@@ -178,7 +178,6 @@ class WallUpgrader:
         
         auto_upgrade = getattr(configs, "AUTO_UPGRADE_WALLS", True)
         preference = getattr(configs, "WALL_RESOURCE_PREFERENCE", "ANY")
-        reserve = getattr(configs, "MIN_RESOURCE_RESERVE", 500000)
         min_trigger = getattr(configs, "MIN_WALL_TRIGGER_LOOT", 6000000)
         
         # 1. Check local persistent disk cache first
@@ -189,7 +188,6 @@ class WallUpgrader:
                     saved = json.load(f)
                     auto_upgrade = saved.get("auto_upgrade_walls", auto_upgrade)
                     preference = saved.get("wall_resource_preference", preference)
-                    reserve = saved.get("min_resource_reserve", reserve)
                     min_trigger = saved.get("min_wall_trigger_loot", min_trigger)
             except:
                 pass
@@ -206,12 +204,11 @@ class WallUpgrader:
                     data = r.json()
                     auto_upgrade = data.get("auto_upgrade_walls", auto_upgrade)
                     preference = data.get("wall_resource_preference", preference)
-                    reserve = data.get("min_resource_reserve", reserve)
                     min_trigger = data.get("min_wall_trigger_loot", min_trigger)
             except:
                 pass
                 
-        return auto_upgrade, str(preference).upper(), int(reserve), int(min_trigger)
+        return auto_upgrade, str(preference).upper(), int(min_trigger)
 
     @classmethod
     def find_row_upgrade_buttons(cls, frame):
@@ -257,10 +254,10 @@ class WallUpgrader:
         6. Taps Gold/Elixir upgrade button (dynamically located).
         7. Confirms with 'Okay' modal.
         8. Dismisses any gem popups.
-        9. Verifies resource deduction.
+        9. Verifies resource deduction & deselects all walls to return home to clean idle state.
         """
         # Fetch up-to-date user config from GUI server / configs
-        auto_upgrade, preference, reserve, min_trigger = cls.get_wall_config()
+        auto_upgrade, preference, min_trigger = cls.get_wall_config()
         
         if not auto_upgrade:
             return False
@@ -270,9 +267,8 @@ class WallUpgrader:
         # 1. Fast Pre-flight Loot Check (<10ms HUD scan)
         gold, elixir = cls.get_village_resources()
         
-        # Check against Safe Reserve & Trigger Threshold
-        can_afford_gold = (gold >= reserve + 500000)
-        can_afford_elixir = (elixir >= reserve + 500000)
+        can_afford_gold = (gold >= 1000000)
+        can_afford_elixir = (elixir >= 1000000)
         
         can_trigger_gold = (gold >= min_trigger)
         can_trigger_elixir = (elixir >= min_trigger)
@@ -286,11 +282,11 @@ class WallUpgrader:
             should_trigger = (can_trigger_gold or can_trigger_elixir)
             
         if not should_trigger:
-            print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Trigger: {min_trigger:,} | Reserve: {reserve:,} | Pref: {preference})")
+            print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Trigger: {min_trigger:,} | Pref: {preference})")
             print(f"Below trigger threshold ({min_trigger:,}). Fast skipping wall check (0s delay).")
             return False
             
-        print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Trigger: {min_trigger:,} | Reserve: {reserve:,} | Pref: {preference})")
+        print(f"Checking Resources: Gold = {gold:,} | Elixir = {elixir:,} (Trigger: {min_trigger:,} | Pref: {preference})")
         print(f"🚀 Loot threshold reached! Opening Builder Menu to check walls...")
 
         # 2. Locate Wall in Builder Menu
@@ -356,6 +352,12 @@ class WallUpgrader:
         gold_after, elixir_after = cls.get_village_resources()
         gold_spent = max(0, gold - gold_after)
         elixir_spent = max(0, elixir - elixir_after)
+        
+        # CRITICAL: Always double deselect the wall row so the home village UI is completely clean for attacks!
+        Input_Handler.click(cls.CORNER_DESELECT[0], cls.CORNER_DESELECT[1])
+        time.sleep(0.3)
+        Input_Handler.click(cls.CORNER_DESELECT[0], cls.CORNER_DESELECT[1])
+        time.sleep(0.3)
         
         if gold_spent >= 100000:
             print(f"🎉 Wall upgrade successful! Spent {gold_spent:,} Gold (Remaining: {gold_after:,}).")

@@ -257,14 +257,11 @@ def handle_wall_config(id):
                 instance.auto_upgrade_walls = bool(data["auto_upgrade_walls"])
             if "wall_resource_preference" in data:
                 instance.wall_resource_preference = str(data["wall_resource_preference"])
-            if "min_resource_reserve" in data:
-                instance.min_resource_reserve = int(data["min_resource_reserve"])
             if "min_wall_trigger_loot" in data:
                 instance.min_wall_trigger_loot = int(data["min_wall_trigger_loot"])
                 
         auto_up = getattr(instance, "auto_upgrade_walls", True) if instance else bool(data.get("auto_upgrade_walls", True))
         pref = getattr(instance, "wall_resource_preference", "ANY") if instance else str(data.get("wall_resource_preference", "ANY"))
-        res = getattr(instance, "min_resource_reserve", 500000) if instance else int(data.get("min_resource_reserve", 500000))
         trig = getattr(instance, "min_wall_trigger_loot", 6000000) if instance else int(data.get("min_wall_trigger_loot", 6000000))
 
         # Persist to disk
@@ -274,7 +271,6 @@ def handle_wall_config(id):
                 json.dump({
                     "auto_upgrade_walls": auto_up,
                     "wall_resource_preference": pref,
-                    "min_resource_reserve": res,
                     "min_wall_trigger_loot": trig
                 }, f, indent=2)
         except:
@@ -282,7 +278,7 @@ def handle_wall_config(id):
             
         # Log to live instance terminal
         status_str = "ENABLED" if auto_up else "DISABLED"
-        log_instance_message(id, f"⚙️ Auto-Wall Config Saved: [{status_str}] Min Trigger = {trig:,} | Reserve = {res:,} | Pref = {pref}")
+        log_instance_message(id, f"⚙️ Auto-Wall Config Saved: [{status_str}] Min Trigger = {trig:,} | Pref = {pref}")
             
         return jsonify({"success": True})
         
@@ -294,7 +290,6 @@ def handle_wall_config(id):
                 if instance:
                     instance.auto_upgrade_walls = saved.get("auto_upgrade_walls", True)
                     instance.wall_resource_preference = saved.get("wall_resource_preference", "ANY")
-                    instance.min_resource_reserve = saved.get("min_resource_reserve", 500000)
                     instance.min_wall_trigger_loot = saved.get("min_wall_trigger_loot", 6000000)
                 return jsonify(saved)
         except:
@@ -304,13 +299,11 @@ def handle_wall_config(id):
         return jsonify({
             "auto_upgrade_walls": True,
             "wall_resource_preference": "ANY",
-            "min_resource_reserve": 500000,
             "min_wall_trigger_loot": 6000000
         })
     return jsonify({
         "auto_upgrade_walls": getattr(instance, "auto_upgrade_walls", True),
         "wall_resource_preference": getattr(instance, "wall_resource_preference", "ANY"),
-        "min_resource_reserve": getattr(instance, "min_resource_reserve", 500000),
         "min_wall_trigger_loot": getattr(instance, "min_wall_trigger_loot", 6000000)
     })
 
