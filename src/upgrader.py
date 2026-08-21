@@ -112,8 +112,9 @@ class WallUpgrader:
         
         if not running(): return None
         
-        # Check up to 3 scroll pages in the builder suggestions dropdown
-        for scroll_page in range(3):
+        # Check up to 6 scroll pages in the builder suggestions dropdown
+        prev_texts = set()
+        for scroll_page in range(6):
             # 2. Capture frame and crop menu ROI
             frame = Frame_Handler.get_frame(grayscale=False, use_cached=False)
             h, w = frame.shape[:2]
@@ -136,29 +137,36 @@ class WallUpgrader:
                 
             if results:
                 visible_texts = [r[1] for r in results]
-                print(f"Builder suggestions (page {scroll_page+1}): {visible_texts}")
+                print(f"Builder suggestions (page {scroll_page+1}/6): {visible_texts}")
                 
                 # 4. Search for line containing "wall"
                 for item in results:
                     box, text, score = item
-                    clean_text = text.lower().replace("wa11", "wall").replace("wal", "wall").replace("waii", "wall")
-                    if "wall" in clean_text:
+                    clean_text = text.lower().replace("wa11", "wall").replace("wal", "wall").replace("waii", "wall").replace("w all", "wall").replace(" ", "")
+                    if "wall" in clean_text or ("allx" in clean_text and any(c.isdigit() for c in clean_text)):
                         box_np = np.array(box)
                         center_y = (np.min(box_np[:, 1]) + np.max(box_np[:, 1])) / 2.0
                         click_y = y1 + (center_y / h)
                         click_x = (x1 + x2) / 2.0
                         print(f"🎯 Target Found: '{text}' at (x={click_x:.2f}, y={click_y:.2f})!")
                         return (click_x, click_y)
+                
+                # Check if we hit the very bottom of the menu (no new items after scroll)
+                curr_texts_set = set(visible_texts)
+                if scroll_page > 0 and curr_texts_set == prev_texts:
+                    print(f"Reached the bottom of Builder suggestions. No wall upgrades found.")
+                    break
+                prev_texts = curr_texts_set
                         
             # Scroll down inside the dropdown menu using reliable adb swipe
-            if scroll_page < 2:
-                print(f"Wall not in visible suggestions (page {scroll_page+1}). Scrolling down...")
+            if scroll_page < 5:
+                print(f"Wall not in visible suggestions (page {scroll_page+1}/6). Scrolling down...")
                 sx = int(w * 0.50)
                 sy1 = int(h * 0.70)
                 sy2 = int(h * 0.25)
                 from utils import ADB_Manager
-                ADB_Manager.adbutils_device.shell(f"input swipe {sx} {sy1} {sx} {sy2} 400")
-                time.sleep(1.0)
+                ADB_Manager.adbutils_device.shell(f"input swipe {sx} {sy1} {sx} {sy2} 500")
+                time.sleep(1.2)
                 
         return None
 
