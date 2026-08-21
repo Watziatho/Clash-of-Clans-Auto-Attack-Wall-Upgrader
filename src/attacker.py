@@ -78,37 +78,47 @@ class Attacker:
         return False
 
     def start_normal_attack(self, timeout=60):
-        # Click attack button (bottom-left)
-        Input_Handler.click(0.07, 0.9)
+        print("⚔️ Opening Attack menu...")
+        # Click Attack button (bottom-left)
+        Input_Handler.click(0.07, 0.90)
+        time.sleep(1.0)
         
-        # Find a match
+        # Locate "Find a Match" or "Find Now"
         def locate_find_a_match():
-            xys = Frame_Handler.locate(self.assets["find_a_match"], thresh=0.85, return_all=True)
-            if len(xys) == 0: return None, None
-            xys = sorted(xys, key=lambda xy: xy[0])
-            x, y = xys[0]
-            if x is None or y is None: return None, None
-            if x > 0.2: return None, None
-            return x, y
-        if not click_with_timeout(
-            locate_find_a_match,
-            timeout=5
-        ): return False
+            for key in ["find_a_match", "find_now"]:
+                if key in self.assets:
+                    x, y = Frame_Handler.locate(self.assets[key], thresh=0.72)
+                    if x is not None and y is not None:
+                        return x, y
+            return None, None
+            
+        found = click_with_timeout(locate_find_a_match, timeout=4)
+        if not found:
+            # Fallback: standard positions for Multiplayer "Find a Match" button
+            Input_Handler.click(0.82, 0.65)
+            time.sleep(0.6)
+            Input_Handler.click(0.15, 0.70)
+            time.sleep(0.6)
         
-        # Confirm attack
-        if not click_with_timeout(
-            lambda: Frame_Handler.locate(self.assets["confirm_attack"], thresh=0.85),
-            timeout=5
-        ): return False
+        # Confirm attack if popup appears
+        def locate_confirm():
+            if "confirm_attack" in self.assets:
+                x, y = Frame_Handler.locate(self.assets["confirm_attack"], thresh=0.75)
+                if x is not None and y is not None:
+                    return x, y
+            return None, None
+            
+        click_with_timeout(locate_confirm, timeout=2.5)
         
         # Wait until in battle (end battle or surrender button appears)
         start_time = time.time()
         while time.time() - start_time < timeout:
-            x, y = Frame_Handler.locate(self.assets["end_battle"], thresh=0.85)
+            if not running(): return False
+            x, y = Frame_Handler.locate(self.assets["end_battle"], thresh=0.75)
             if x is not None and y is not None: return True
-            x, y = Frame_Handler.locate(self.assets["surrender"], thresh=0.85)
+            x, y = Frame_Handler.locate(self.assets["surrender"], thresh=0.75)
             if x is not None and y is not None: return True
-            time.sleep(0.1)
+            time.sleep(0.2)
         return False
     
     def detect_troop_positions(self, frame, clip_left=0.0, clip_right=1.0, type_gaps_seen=0, return_boundaries=False, return_types=False, return_counts=False):
@@ -342,16 +352,6 @@ class Attacker:
     @require_exit()
     def run_home_base(self, timeout=60):
         try:
-            # Make sure in home base
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                try:
-                    get_home_builders(1)
-                    break
-                except (KeyboardInterrupt, SystemExit): raise
-                except: pass
-            if time.time() - start_time >= timeout: return
-            
             # Complete an attack
             if self.start_normal_attack(timeout):
                 self.complete_normal_attack(exclude_clan_troops=EXCLUDE_CLAN_TROOPS)

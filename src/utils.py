@@ -485,9 +485,9 @@ def get_home_builders(timeout=60, return_amount=True, raise_exception=True, use_
             slash = cv2.cvtColor(Asset_Manager.misc_assets["slash"], cv2.COLOR_RGB2GRAY)
             res = cv2.matchTemplate(section, slash, cv2.TM_CCOEFF_NORMED)
             _, max_val, _, _ = cv2.minMaxLoc(res)
-            if raise_exception and max_val < 0.9: raise Exception("Slash not found")
+            if raise_exception and max_val < 0.75: raise Exception("Slash not found")
             
-            if not return_amount: return max_val >= 0.9
+            if not return_amount: return max_val >= 0.75
             
             text = fix_digits(''.join(OCR_Handler.get_text(section)).replace(' ', '').replace('/', ''))
             available = int(text[0])
