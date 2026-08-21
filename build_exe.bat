@@ -1,13 +1,13 @@
 @echo off
-title Build CoC Bot Executable v1.6.1
+title Build CoC Bot Standalone Executable v1.6.2
 cd /d %~dp0
 echo ========================================================
-echo Building CoC_Bot_v1.6.1.exe with PyInstaller...
+echo Building Standalone (Single File) CoC_Bot_v1.6.2.exe...
 echo ========================================================
 
-pyinstaller --noconfirm --onedir --windowed ^
+pyinstaller --noconfirm --onefile --windowed ^
     --icon "assets/icon.ico" ^
-    --name "CoC_Bot_v1.6.1" ^
+    --name "CoC_Bot_v1.6.2" ^
     --add-data "assets;assets" ^
     --add-data "src/gui_server;gui_server" ^
     --collect-all "rapidocr_onnxruntime" ^
@@ -24,5 +24,5 @@ if %errorlevel% neq 0 (
 
 echo.
 echo ========================================================
-echo Build Succeeded! Executable is at: dist\CoC_Bot_v1.6.1\CoC_Bot_v1.6.1.exe
+echo Build Succeeded! Standalone Executable is at: dist\CoC_Bot_v1.6.2.exe
 echo ========================================================

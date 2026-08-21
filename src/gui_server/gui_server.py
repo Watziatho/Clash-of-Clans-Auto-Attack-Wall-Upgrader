@@ -199,30 +199,36 @@ def handle_exclude(id):
 
 @app.route("/instances/<id>/logs", methods=["GET"])
 def handle_instance_logs(id):
-    log_path = Path("debug") / f"{id}.log"
-    if not log_path.exists():
-        app_data_log = Path.home() / ".CoC_Bot" / "debug" / f"{id}.log"
-        if app_data_log.exists():
-            log_path = app_data_log
-
-    if log_path.exists():
+    candidates = [
+        Path("debug") / f"{id}.log",
+        Path.home() / ".CoC_Bot" / "debug" / f"{id}.log"
+    ]
+    # Select the newest active log file
+    valid_files = [p for p in candidates if p.exists() and p.stat().st_size > 0]
+    if not valid_files:
+        valid_files = [p for p in candidates if p.exists()]
+        
+    if valid_files:
+        log_path = max(valid_files, key=lambda p: p.stat().st_mtime)
         try:
             with open(log_path, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
                 return jsonify({"logs": lines[-300:], "count": len(lines)})
         except Exception as e:
             return jsonify({"logs": [f"Error reading log: {e}"], "count": 0})
+            
     return jsonify({"logs": ["No logs recorded yet. Click START to begin."], "count": 0})
 
 @app.route("/instances/<id>/logs/clear", methods=["POST"])
 def handle_clear_logs(id):
-    log_path = Path("debug") / f"{id}.log"
-    if log_path.exists():
-        try:
-            with open(log_path, "w", encoding="utf-8") as f:
-                f.write("")
-        except:
-            pass
+    for base_dir in [Path("debug"), Path.home() / ".CoC_Bot" / "debug"]:
+        p = base_dir / f"{id}.log"
+        if p.exists():
+            try:
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write("")
+            except:
+                pass
     return jsonify(1)
 
 def log_instance_message(inst_id, message):

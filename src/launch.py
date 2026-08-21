@@ -52,6 +52,25 @@ def cmd_launch(args):
     if utils.DISABLE_DEVICE_SLEEP: utils.disable_sleep()
     launch_proc(args)
 
+def kill_instance_process(p):
+    """Kills a single specific instance process and all its child workers without affecting other running bots."""
+    if not p:
+        return
+    try:
+        proc = psutil.Process(p.pid)
+        for child in proc.children(recursive=True):
+            try:
+                child.kill()
+            except:
+                pass
+        proc.kill()
+    except:
+        try:
+            p.terminate()
+            p.kill()
+        except:
+            pass
+
 def gui_launch(args):
     from multiprocessing import Process
     import utils
@@ -114,16 +133,14 @@ def gui_launch(args):
                     start_instance_process(inst_id)
             elif action == "stop" and inst_id:
                 p = procs.pop(inst_id, None)
-                if p and p.poll() is None:
-                    p.terminate()
-                    p.kill()
+                if p:
+                    kill_instance_process(p)
     except (EOFError, KeyboardInterrupt, SystemExit):
         get_gui().stop()
         pipe.close()
         for p in procs.values():
-            if p and p.poll() is None:
-                p.terminate()
-                p.kill()
+            if p:
+                kill_instance_process(p)
         cleanup_orphan_bots()
 
 def launch():
