@@ -505,42 +505,39 @@ def start_coc(timeout=60):
     
     try:
         if not running(): return False
-        to_system_home()
         print("Starting CoC...", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
 
         cont_templates = [render_text("Continue", "SupercellMagic", s, color=(255, 255, 255)) for s in range(25, 31)]
 
-        i = 0
         start = time.time()
         while time.time() - start < timeout:
             if not running(): return False
-            ADB_Manager.adbutils_device.shell(f"am start {'-S' if i==0 else ''} -W -n com.supercell.clashofclans/com.supercell.titan.GameApp")
-            Input_Handler.click_exit(4, 0.1)
+            try:
+                # Direct Intent launch - never touches desktop icons or launcher ads
+                ADB_Manager.adbutils_device.shell("am start -n com.supercell.clashofclans/com.supercell.titan.GameApp")
+            except:
+                pass
+            time.sleep(1.0)
             
             Frame_Handler.get_frame()
             
             try:
-                get_home_builders(0, return_amount=False, use_cached_frame=True)
-                TEMP_CACHE["location"] = "home_base"
-                break
+                if get_home_builders(0, return_amount=False, use_cached_frame=True):
+                    TEMP_CACHE["location"] = "home_base"
+                    print("CoC started successfully in Home Village!")
+                    return True
             except (KeyboardInterrupt, SystemExit): raise
             except: pass
             
-            try:
-                get_builder_builders(0, return_amount=False, use_cached_frame=True)
-                TEMP_CACHE["location"] = "builder_base"
-                break
-            except (KeyboardInterrupt, SystemExit): raise
-            except: pass
-            
-            cont_locs = Frame_Handler.batch_locate(cont_templates, grayscale=True, thresh=0.7, ref="cc", use_cached=True)
+            # Dismiss in-game 'Continue' prompts (FORBIDDEN: bottom Popular Games area y >= 0.65)
+            cont_locs = Frame_Handler.batch_locate(cont_templates, grayscale=True, thresh=0.82, ref="cc", use_cached=True)
             for x, y in cont_locs:
                 if x is not None and y is not None:
-                    Input_Handler.click(x, y)
+                    if y < 0.65: # Strictly exclude bottom ads & popular games region
+                        Input_Handler.click(x, y)
             
-            update_coc(timeout=5, from_in_game=True)
+            time.sleep(1.0)
             
-            i += 1
         if time.time() - start > timeout:
             stop_coc()
             raise Exception("Failed to start CoC")

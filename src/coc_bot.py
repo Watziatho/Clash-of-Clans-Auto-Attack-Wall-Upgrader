@@ -17,28 +17,14 @@ class CoC_Bot:
     def ensure_home_village(self):
         """
         State-Aware Game Recovery:
-        1. Checks if Clash of Clans is running and focused in the foreground.
-           If NOT focused -> launches CoC immediately without clicking on desktop ads.
-        2. If CoC is in foreground:
-           - Already in Home Village? -> return True immediately.
-           - In active battle? -> clicks Surrender -> Okay -> Return Home.
-           - In results screen? -> clicks Return Home -> dismisses reward cards.
+        1. If already in Home Village -> return True immediately.
+        2. If in active battle -> clicks Surrender -> Okay -> Return Home.
+        3. If in results screen -> clicks Return Home -> dismisses reward cards.
+        4. If app is minimized or closed -> starts CoC cleanly.
         """
         print("Checking game state...")
         
-        # 1. Verify if CoC is currently the active foreground app
-        try:
-            focus_info = ADB_Manager.adbutils_device.shell("dumpsys window")
-            is_focused = "com.supercell.clashofclans" in focus_info
-        except:
-            is_focused = False
-            
-        if not is_focused:
-            print("CoC is not the active foreground app. Launching Clash of Clans directly...")
-            start_coc()
-            return True
-            
-        # 2. CoC is open: Check if already in Home Village
+        # 1. Fast Check: Already in Home Village?
         try:
             if get_home_builders(0.5, return_amount=False, raise_exception=False):
                 print("Already in Home Village!")

@@ -90,7 +90,13 @@ class WallUpgrader:
                 combined_text = "".join([item[1] for item in sorted_items])
                 digits = re.sub(r"\D", "", combined_text)
                 if len(digits) >= 3:
-                    resource_values.append(int(digits))
+                    val = int(digits)
+                    # Sanitize: Max village storage capacity (with max season bank) is <= 30,000,000
+                    while val > 30000000 and len(str(val)) > 7:
+                        val = int(str(val)[1:])
+                    if val > 30000000:
+                        val = 30000000
+                    resource_values.append(val)
                     
             gold = resource_values[0] if len(resource_values) > 0 else 0
             elixir = resource_values[1] if len(resource_values) > 1 else 0

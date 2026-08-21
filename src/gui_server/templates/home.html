@@ -463,6 +463,13 @@
         }
 
         /* Log syntax styling */
+        .log-row {
+            display: block;
+            margin: 0;
+            padding: 1px 0;
+            user-select: text;
+            -webkit-user-select: text;
+        }
         .log-ts { color: #64748b; }
         .log-info { color: #34d399; font-weight: 600; }
         .log-warn { color: #fbbf24; font-weight: 600; }
@@ -864,11 +871,18 @@
                 .then(data => {
                     const logBox = document.getElementById('logs_' + id);
                     if (logBox && data.logs) {
+                        // Freeze DOM replacement if user is currently selecting/highlighting text
+                        const sel = window.getSelection();
+                        if (sel && sel.toString().trim().length > 0 && logBox.contains(sel.anchorNode)) {
+                            return;
+                        }
                         const isScrolledToBottom = logBox.scrollHeight - logBox.clientHeight <= logBox.scrollTop + 40;
-                        const formatted = data.logs.map(formatLogLine).join('');
-                        logBox.innerHTML = formatted;
-                        if (isScrolledToBottom) {
-                            logBox.scrollTop = logBox.scrollHeight;
+                        const formatted = data.logs.map(line => `<div class="log-row">${formatLogLine(line)}</div>`).join('');
+                        if (logBox.innerHTML !== formatted) {
+                            logBox.innerHTML = formatted;
+                            if (isScrolledToBottom) {
+                                logBox.scrollTop = logBox.scrollHeight;
+                            }
                         }
                     }
                 }).catch(() => {});
